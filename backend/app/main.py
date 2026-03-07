@@ -1,8 +1,18 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import routes
+from app.services.db_service import init_db, close_db
 
-app = FastAPI(title="Flux Scheduler API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    yield
+    # Shutdown
+    await close_db()
+
+app = FastAPI(title="Flux Scheduler API", version="1.0.0", lifespan=lifespan)
 
 # Allow requests from the Next.js frontend
 app.add_middleware(

@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URI")
+}
+
+model Task {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  dueDate          DateTime
+  duration         Float?
+  type             String?
+  cognitiveWeight  Float
+  vectorEmbedding  Float[]  // 1536 dimensions
+  createdAt        DateTime @default(now())
+}

@@ -27,38 +27,38 @@ export default function TaskInput({ onAddTask }: { onAddTask: (task: any) => voi
   };
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-2xl w-full">
-      <h2 className="text-xl font-bold text-white mb-4">Add Task</h2>
+    <div className="bg-white dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-6 rounded-2xl w-full shadow-lg dark:shadow-none transition-colors">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Task</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-white/70 mb-1">Task Name</label>
+          <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1">Task Name</label>
           <input 
             type="text" 
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Write Python Script" 
-            className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
           />
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-white/70 mb-1">Duration (hrs)</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1">Duration (hrs)</label>
             <input 
               type="number" 
               step="0.5"
               min="0.5"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-white/70 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-white/70 mb-1">Type</label>
             <select 
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+              className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
             >
               <option value="STEM">STEM (High Load)</option>
               <option value="Deep Work">Deep Work (High Load)</option>
