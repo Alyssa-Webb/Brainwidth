@@ -1,233 +1,233 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { api } from "@/lib/auth";
 import LoadMeter from "@/components/LoadMeter";
-import TaskInput from "@/components/TaskInput";
 import CalendarView from "@/components/CalendarView";
-import { Sparkles, ArrowRight, Bot, Send, BrainCircuit } from "lucide-react";
-
-const MAX_DAILY_LOAD = 10.0;
-const API_URL = "http://localhost:8000/api";
+import RecommendationsPanel from "@/components/RecommendationsPanel";
+import { Sparkles, ArrowRight, BedDouble, Calendar, CalendarDays, User } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState<any[]>([]);
   const [scheduledTasks, setScheduledTasks] = useState<any>({});
   const [currentLoad, setCurrentLoad] = useState(0);
+  const [todayLoad, setTodayLoad] = useState(0);
+  const [baseCapacity, setBaseCapacity] = useState(8.0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'assistant', content: "Hi Alyssa! I noticed you uploaded your Calculus 3 syllabus. You have a midterm coming up next week. I recommend scheduling 2 hours of high-cognitive review during your peak morning hours. Shall I add that to your pool?" }
-  ]);
+  const [decompressMode, setDecompressMode] = useState(false);
+  const [view, setView] = useState<"week" | "month">("week");
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [chronotype, setChronotype] = useState("neutral");
+  const [workStart, setWorkStart] = useState(7);
+  const [workEnd, setWorkEnd] = useState(21);
+  const [userName, setUserName] = useState("there");
 
-  // Auto-fetch data
+  // Load user profile for capacity/chronotype, then auto-generate schedule
   useEffect(() => {
-    const fetchSeededTasks = async () => {
+    const init = async () => {
       try {
-        const response = await axios.get(`${API_URL}/tasks`);
-        if (response.data && response.data.length > 0) {
-          setTasks(response.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch tasks automatically", error);
+        const profileRes = await api.get("/auth/me");
+        const profile = profileRes.data;
+        setBaseCapacity(profile.base_capacity ?? 8.0);
+        setChronotype(profile.chronotype ?? "neutral");
+        setWorkStart(profile.work_start_hour ?? 8);
+        setWorkEnd(profile.work_end_hour ?? 20);
+        setUserName(profile.name?.split(" ")[0] ?? "there");
+      } catch {
+        // Use defaults if not logged in
       }
+      await generateSchedule(false);
+      await loadRecommendations();
     };
-    
-    fetchSeededTasks();
+    init();
   }, []);
 
-  const handleAddTask = (newTask: any) => {
-    setTasks([...tasks, newTask]);
-  };
-
-  const generateSchedule = async () => {
+  const generateSchedule = async (decompress: boolean = false) => {
     setIsGenerating(true);
+    setDecompressMode(decompress);
     try {
-      const response = await axios.get(`${API_URL}/optimize`);
-      const optimizedWeek = response.data;
-      setScheduledTasks(optimizedWeek.schedule);
-      setCurrentLoad(optimizedWeek.max_daily_load);
+      const response = await api.get(`/optimize?decompress=${decompress}`);
+      const data = response.data;
+      setScheduledTasks(data.schedule);
+      setCurrentLoad(data.max_daily_load);
+      if (data.base_capacity) setBaseCapacity(data.base_capacity);
+      // Extract today's load from Day 0
+      const todayKey = Object.keys(data.schedule ?? {})[0];
+      if (todayKey && data.schedule[todayKey]) {
+        setTodayLoad(data.schedule[todayKey].total_load ?? 0);
+      }
     } catch (error) {
       console.error("Failed to generate schedule", error);
-      alert("Failed to generate optimized schedule. Ensure backend is running.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatMessage.trim()) return;
+  const loadRecommendations = async () => {
+    try {
+      const res = await api.get("/recommendations");
+      setRecommendations(res.data.recommendations ?? []);
+      if (res.data.chronotype) setChronotype(res.data.chronotype);
+      if (res.data.base_capacity) setBaseCapacity(res.data.base_capacity);
+    } catch {
+      // fail silently
+    }
+  };
 
-    setChatHistory([...chatHistory, { role: 'user', content: chatMessage }]);
-    setChatMessage("");
-
-    // Mock AI response
-    setTimeout(() => {
-      setChatHistory(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I've added that to your pool! Don't forget, spacing out Deep Work sessions prevents mental burnout. Let me know when you're ready to regenerate your schedule." 
-      }]);
-      // Mock adding a task from chat
-      handleAddTask({ id: Date.now(), title: "Calculus Review", duration: 2, type: "Deep Work" });
-    }, 1000);
+  const handleDecompress = async () => {
+    await generateSchedule(true);
+    await loadRecommendations();
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 font-sans">
-      
-      {/* Background Gradients */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/20 mix-blend-multiply filter blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/10 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border px-8 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="w-8 h-8 text-primary" />
-          <span className="text-xl font-bold tracking-tight">Brainwidth</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm font-medium">
-          <span className="text-muted-foreground hidden sm:block">Hello, Alyssa!</span>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-8">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-4 py-6">
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-140px)]">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">Good {getTimeOfDay()}, {userName} 👋</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Here's your cognitive schedule for the week.</p>
+          </div>
           
-          {/* LEFT COLUMN: Input & AI Chatbot Space */}
-          <div className="lg:col-span-4 flex flex-col gap-6 h-full">
-            
-            {/* Load Meter */}
-            <div className="shrink-0 bg-card border border-border rounded-3xl p-6 shadow-sm">
-              <LoadMeter currentLoad={currentLoad} maxLoad={MAX_DAILY_LOAD} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
+              <button
+                onClick={() => setView("week")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === "week" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Calendar size={12} /> Week
+              </button>
+              <button
+                onClick={() => setView("month")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === "month" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <CalendarDays size={12} /> Month
+              </button>
             </div>
 
-            {/* AI Chatbot Area */}
-            <div className="flex-1 bg-card border border-border rounded-3xl shadow-sm flex flex-col overflow-hidden min-h-[400px]">
-              <div className="bg-secondary/50 p-4 border-b border-border flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-full text-primary">
-                  <Bot size={20} />
-                </div>
-                <h3 className="font-semibold">Brainwidth AI Assistant</h3>
-              </div>
-              
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                {chatHistory.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-3 rounded-2xl ${
-                      msg.role === 'user' 
-                        ? 'bg-primary text-primary-foreground rounded-tr-sm' 
-                        : 'bg-muted text-foreground rounded-tl-sm'
-                    }`}>
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Decompression Mode */}
+            <button
+              onClick={handleDecompress}
+              disabled={isGenerating}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                decompressMode
+                  ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
+                  : "bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
+              } disabled:opacity-50`}
+            >
+              <BedDouble size={14} />
+              Decompression
+            </button>
 
-              {/* Input */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-card">
-                <div className="relative">
-                  <input 
-                    type="text"
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    placeholder="Ask AI to schedule or adjust..."
-                    className="w-full bg-muted border border-border rounded-full pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                  />
-                  <button 
-                    type="submit"
-                    disabled={!chatMessage.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                  >
-                    <Send size={16} className={chatMessage.trim() ? '' : '-ml-0.5'} />
-                  </button>
-                </div>
-              </form>
+            {/* Optimize Button */}
+            <button
+              onClick={() => generateSchedule(false)}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-xl text-xs transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
+            >
+              {isGenerating ? (
+                <><Sparkles className="animate-spin" size={14} /> Optimizing...</>
+              ) : (
+                <><ArrowRight size={14} /> Re-Optimize</>
+              )}
+            </button>
+
+            {/* Profile Link */}
+            <Link
+              href="/profile"
+              className="flex items-center gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-2 rounded-xl text-xs font-medium transition-all border border-border"
+            >
+              <User size={12} /> Profile
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          
+          {/* LEFT SIDEBAR */}
+          <div className="xl:col-span-3 flex flex-col gap-4">
+            {/* Today's Mental Tax Card */}
+            <div className="bg-card border border-border rounded-3xl p-5 shadow-sm">
+              <div className="mb-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Today's Mental Tax</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                </p>
+              </div>
+              <LoadMeter currentLoad={todayLoad} maxLoad={baseCapacity} />
+              <div className="mt-3 pt-3 border-t border-border flex justify-between text-xs text-muted-foreground">
+                <span>Week peak</span>
+                <span className="font-mono font-semibold text-foreground">{currentLoad.toFixed(1)}τ</span>
+              </div>
             </div>
-            
+
+
+            {/* Decompression indicator */}
+            {decompressMode && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <BedDouble size={14} className="text-blue-400" />
+                  <p className="text-xs font-bold text-blue-400">Decompression Active</p>
+                </div>
+                <p className="text-xs text-muted-foreground">Your schedule has been rebalanced with recovery breaks inserted between heavy tasks.</p>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            <div className="bg-card border border-border rounded-3xl p-5 shadow-sm flex-1">
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                <Sparkles size={14} className="text-primary" />
+                AI Insights
+              </h3>
+              <RecommendationsPanel
+                recommendations={recommendations}
+                chronotype={chronotype}
+                baseCapacity={baseCapacity}
+              />
+            </div>
           </div>
 
-          {/* RIGHT COLUMN: Scheduler & Pool */}
-          <div className="lg:col-span-8 flex flex-col gap-6 h-full">
-            
-            <div className="shrink-0">
-               <TaskInput onAddTask={handleAddTask} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 min-h-0">
-              
-              {/* Unscheduled Pool */}
-              <div className="bg-card border border-border rounded-3xl shadow-sm p-6 flex flex-col h-full">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-lg">Unscheduled Tasks</h3>
-                  <span className="px-3 py-1 bg-muted rounded-full text-xs font-semibold text-muted-foreground">
-                    {tasks.length} items
-                  </span>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar mb-6">
-                  {tasks.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground text-sm text-center">
-                      <p>Your pool is empty.</p>
-                      <p>Add tasks manually or ask the AI to extract them from your syllabus.</p>
-                    </div>
-                  ) : (
-                    tasks.map((t, idx) => (
-                      <div key={t.id || idx} className="p-4 bg-muted/50 border border-border rounded-2xl flex justify-between items-center group hover:border-primary/50 transition-colors">
-                        <span className="font-medium">{t.title}</span>
-                        <span className="text-xs bg-card px-2 py-1 rounded-md border border-border shrink-0">{t.duration}h • {t.type}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <button 
-                  onClick={generateSchedule}
-                  disabled={isGenerating || tasks.length === 0}
-                  className="w-full shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-primary/20"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Sparkles className="animate-spin" size={18} />
-                      Optimizing Cognitive Load...
-                    </>
-                  ) : (
-                    <>
-                      Generate AI Schedule
-                      <ArrowRight size={18} />
-                    </>
-                  )}
-                </button>
+          {/* MAIN CALENDAR */}
+          <div className="xl:col-span-9 bg-card border border-border rounded-3xl shadow-sm p-5 overflow-hidden">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h2 className="font-bold text-base">
+                {view === "week" ? "7-Day Optimized Flow" : "Monthly Overview"}
+              </h2>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/>Low load</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block"/>Medium</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>High load</span>
+                {scheduledTasks && Object.keys(scheduledTasks).length > 0 && (
+                  <span className="font-bold bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full border border-green-500/30">Active</span>
+                )}
               </div>
-
-              {/* The Schedule Viewer */}
-              <div className="bg-card border border-border rounded-3xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
-                <div className="flex items-center justify-between mb-6 shrink-0">
-                  <h2 className="font-bold text-lg">Optimized Flow</h2>
-                  {scheduledTasks && Object.keys(scheduledTasks).length > 0 && (
-                    <span className="text-xs font-bold bg-green-500/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full border border-green-500/30">
-                      Active
-                    </span>
-                  )}
-                </div>
-                
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  <CalendarView scheduleData={scheduledTasks} />
-                </div>
-              </div>
-
             </div>
-
+            <div className="overflow-x-auto">
+              <CalendarView
+                scheduleData={scheduledTasks}
+                view={view}
+                baseCapacity={baseCapacity}
+                workStart={workStart}
+                workEnd={workEnd}
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function getTimeOfDay(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
 }

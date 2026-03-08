@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, AlertCircle } from "lucide-react";
 import { useState } from "react";
+import axios from "axios";
+import { setToken, setUser } from "@/lib/auth";
 
 // Basic SQL Injection prevention regex
-const SQLI_REGEX = /('|"|;|--|\/\*|\*\/|@@|@|char|nchar|varchar|nvarchar|alter|begin|cast|create|cursor|declare|delete|drop|end|exec|execute|fetch|insert|kill|open|select|sys|sysobjects|syscolumns|table|update)/i;
+const SQLI_REGEX = /('|"|;|--|\/\*|\*\/|char|nchar|varchar|nvarchar|alter|begin|cast|create|cursor|declare|delete|drop|end|exec|execute|fetch|insert|kill|open|select|sys|sysobjects|syscolumns|table|update)/i;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -22,8 +25,27 @@ export default function LoginPage() {
       return;
     }
 
-    // If safe, proceed to dashboard
-    window.location.href = '/dashboard';
+    setIsLoading(true);
+    try {
+      const formData = new URLSearchParams();
+      formData.append("username", email);
+      formData.append("password", password);
+
+      const response = await axios.post("http://localhost:8000/api/auth/login", formData, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      });
+
+      if (response.data && response.data.access_token) {
+        setToken(response.data.access_token);
+        // For simple demonstration, manually saving the email
+        setUser({ email, name: email.split('@')[0] }); 
+        window.location.href = '/dashboard';
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to log in. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -79,10 +101,11 @@ export default function LoginPage() {
           
           <button
             type="submit"
-            className="w-full group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-4 h-12 text-md font-semibold transition-all active:scale-95 mt-4"
+            disabled={isLoading}
+            className="w-full group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-4 h-12 text-md font-semibold transition-all active:scale-95 mt-4 disabled:opacity-70"
           >
-            Log In
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            {isLoading ? "Logging In..." : "Log In"}
+            {!isLoading && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
           </button>
         </form>
 
