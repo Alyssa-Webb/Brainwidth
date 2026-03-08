@@ -1,131 +1,121 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import axios from "axios";
-import TaskInput from "@/components/TaskInput";
-import LoadMeter from "@/components/LoadMeter";
-import CalendarView from "@/components/CalendarView";
-import { Sparkles, ArrowRight, Database } from "lucide-react";
+"use client";
 
+import Link from "next/link";
+import { ArrowRight, BrainCircuit, CalendarClock, Zap } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
-const MAX_DAILY_LOAD = 10.0;
-const API_URL = "http://localhost:8000/api";
+export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
 
-export default function Home() {
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [scheduledTasks, setScheduledTasks] = useState<any[]>([]);
-  const [currentLoad, setCurrentLoad] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Auto-fetch data without showing a scary DB Sync button
-  useEffect(() => {
-    const fetchSeededTasks = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/tasks`);
-        if (response.data && response.data.length > 0) {
-          setTasks(response.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch tasks automatically", error);
-      }
-    };
-    
-    fetchSeededTasks();
-  }, []);
-
-  const handleAddTask = (newTask: any) => {
-    setTasks([...tasks, newTask]);
-  };
-
-  const generateSchedule = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await axios.post(`${API_URL}/calculate-tax`, tasks);
-      
-      const processedTasks = response.data;
-      setScheduledTasks(processedTasks);
-      
-      const totalTax = processedTasks.reduce((sum: number, t: any) => sum + t.mental_tax, 0);
-      setCurrentLoad(totalTax);
-    } catch (error) {
-      console.error("Failed to generate schedule", error);
-      alert("Attempted to reach backend. Make sure FastAPI is running on port 8000.");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  useEffect(() => setMounted(true), []);
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-white transition-colors duration-300 font-sans">
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-300/30 dark:bg-blue-900/20 blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-indigo-300/30 dark:bg-indigo-900/20 blur-[120px]" />
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 pb-20 sm:p-20 font-sans relative overflow-hidden bg-background text-foreground transition-colors duration-300">
+      
+      {/* Background Gradients */}
+      <div className="absolute top-0 -left-4 w-72 h-72 bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse duration-1000"></div>
+      <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-700 duration-1000"></div>
+      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
-        <header className="mb-12 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-black tracking-tight flex items-center gap-3 text-gray-900 dark:text-white">
-              Flux <Sparkles className="text-blue-500 dark:text-blue-400" />
-            </h1>
-            <p className="text-gray-600 dark:text-white/60 mt-1 max-w-md text-sm">
-              Optimize your day based on cognitive load, not just time.
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-5 space-y-6">
-            <LoadMeter currentLoad={currentLoad} maxLoad={MAX_DAILY_LOAD} />
-            <TaskInput onAddTask={handleAddTask} />
-            
-            {tasks.length > 0 && (
-              <div className="bg-white dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-5 rounded-2xl w-full shadow-lg dark:shadow-xl transition-colors">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Unscheduled Pool</h3>
-                  <span className="text-xs bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-600 dark:text-white/70">{tasks.length} items</span>
-                </div>
-                <div className="space-y-2 mb-5 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                  {tasks.map((t, idx) => (
-                    <div key={t.id || idx} className="text-sm bg-gray-50 dark:bg-black/20 p-3 rounded-lg border border-gray-100 dark:border-white/5 flex justify-between items-center transition-colors">
-                      <span className="text-gray-800 dark:text-white/80 font-medium truncate pr-2">{t.title}</span>
-                      <span className="text-gray-500 dark:text-white/40 text-xs shrink-0 bg-gray-200 dark:bg-white/5 px-2 py-1 rounded">{t.duration}h • {t.type}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <button 
-                  onClick={generateSchedule}
-                  disabled={isGenerating}
-                  className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-black font-semibold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_20px_rgba(59,130,246,0.3)] dark:shadow-[0_0_20px_rgba(255,255,255,0.15)]"
-                >
-                  {isGenerating ? "Optimizing..." : "Generate AI Schedule"}
-                  {!isGenerating && <ArrowRight size={18} />}
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-7">
-            <div className="bg-white dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-6 md:p-8 rounded-3xl min-h-[600px] shadow-lg dark:shadow-xl transition-colors">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Optimized Flow</h2>
-                {scheduledTasks.length > 0 && (
-                  <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-100 dark:bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-400/20">
-                    Active
-                  </span>
-                )}
-              </div>
-              
-              <CalendarView tasks={scheduledTasks} />
-            </div>
-          </div>
+      {/* Theme Toggle Button */}
+      {mounted && (
+        <div className="absolute top-8 right-8 z-50">
+          <ThemeToggle />
         </div>
+      )}
+
+      <main className="flex flex-col items-center max-w-4xl w-full gap-12 text-center z-10 mt-12">
+        
+        {/* Hero Section */}
+        <section className="space-y-6 flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium text-sm mb-4 border border-primary/20 backdrop-blur-sm shadow-sm">
+            <SparklesIcon className="w-4 h-4" />
+            <span>Manage your time. Master your Mind.</span>
+          </div>
+          
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-foreground transition-colors">
+            Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">Brainwidth</span>
+          </h1>
+          
+          <p className="text-xl sm:text-2xl text-muted-foreground max-w-2xl leading-relaxed mt-4 transition-colors">
+            The first cognitive load scheduler built for students balancing complex semester workloads.
+          </p>
+        </section>
+
+        {/* Pitch Section */}
+        <section className="bg-card text-card-foreground p-8 sm:p-10 rounded-3xl border border-border shadow-xl shadow-primary/5 max-w-3xl backdrop-blur-md bg-opacity-80 dark:bg-opacity-80 transition-all">
+          <p className="text-lg leading-relaxed text-left">
+            Typical tools like Google Calendar and Outlook only provide linear time blocks without considering the <strong className="text-primary font-bold">"Mental Tax"</strong> of switching between a high-level Calculus assignment and a tedious, multi-client meeting. 
+            <br/><br/>
+            Hyma and Alyssa developed Brainwidth to directly support students in managing their time and approaching rigorous tasks intelligently.
+          </p>
+        </section>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-4">
+          <Link 
+            href="/signup" 
+            className="group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/25"
+          >
+            Get Started
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Link>
+          <Link 
+            href="/login" 
+            className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95"
+          >
+            Log In
+          </Link>
+        </div>
+
+        {/* Feature Highlights */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full mt-12">
+          <FeatureCard 
+            icon={<BrainCircuit className="w-8 h-8 text-primary" />}
+            title="Chronotype Quiz"
+            description="Discover your peak mental hours and optimize your schedule."
+          />
+          <FeatureCard 
+            icon={<CalendarClock className="w-8 h-8 text-blue-500" />}
+            title="Tax-Aware Scheduling"
+            description="Schedule tasks based on cognitive load, not just available minutes."
+          />
+          <FeatureCard 
+            icon={<Zap className="w-8 h-8 text-purple-500" />}
+            title="AI Chatbot Assistant"
+            description="Get real-time scheduling advice from your personal AI."
+          />
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      <path d="M5 3v4" />
+      <path d="M19 17v4" />
+      <path d="M3 5h4" />
+      <path d="M17 19h4" />
+    </svg>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <div className="flex flex-col items-center text-center p-6 bg-card text-card-foreground rounded-2xl border border-border shadow-sm hover:shadow-md transition-all hover:-translate-y-1">
+      <div className="p-3 bg-secondary rounded-xl mb-4 text-secondary-foreground">
+        {icon}
       </div>
-    </main>
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-muted-foreground">{description}</p>
+    </div>
   );
 }
