@@ -35,7 +35,7 @@ async def seed_db():
         "name": "Alyssa",
         "hashed_password": get_password_hash("password"),
         # Phase 6 profile fields
-        "chronotype": "morning",          # Alyssa is a morning person
+        "chronotype": "bear",          # Alyssa is a bear (follows the sun)
         "work_start_hour": 8,
         "work_end_hour": 20,
         "base_capacity": 9.0,            # slightly above average

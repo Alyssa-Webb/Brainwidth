@@ -36,7 +36,7 @@ def parse_syllabus_and_extract_tasks(file_bytes: bytes) -> dict:
     print(f"Extracted {len(text)} characters.")
     
     # Initialize Gemini Flash via LangChain
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key, temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", api_key=api_key, temperature=0.1)
     
     # Create structured output
     structured_llm = llm.with_structured_output(ClassDifficulty)

@@ -41,13 +41,28 @@ export default function ProfilePage() {
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const fetchSyllabi = async () => {
+    try {
+      const syllabiRes = await api.get("/syllabi");
+      setSyllabi(syllabiRes.data.syllabi ?? []);
+    } catch (e) {
+      setSyllabi([]);
+    }
+  };
+
+  const fetchCalendarStatus = async () => {
+    try {
+      const r = await api.get("/auth/gcal/status");
+      setGcalStatus(r.data.connected ? "connected" : "disconnected");
+    } catch {
+      setGcalStatus("disconnected");
+    }
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const [profileRes, syllabiRes] = await Promise.all([
-          api.get("/auth/me"),
-          api.get("/syllabi").catch(() => ({ data: { syllabi: [] } })),
-        ]);
+        const profileRes = await api.get("/auth/me");
         setProfile({
           name: profileRes.data.name ?? "",
           email: profileRes.data.email ?? "",
@@ -57,11 +72,12 @@ export default function ProfilePage() {
           base_capacity: profileRes.data.base_capacity ?? 8.0,
           goals: profileRes.data.goals ?? []
         });
-        setSyllabi(syllabiRes.data.syllabi ?? []);
-        // Check GCal connection status
-        api.get("/auth/gcal/status")
-          .then(r => setGcalStatus(r.data.connected ? "connected" : "disconnected"))
-          .catch(() => setGcalStatus("disconnected"));
+        
+        // Execution of reusable API functions triggered on page-load event
+        await Promise.all([
+          fetchSyllabi(),
+          fetchCalendarStatus()
+        ]);
       } catch (e) {
         console.error("Failed to load profile", e);
       } finally {
@@ -129,9 +145,8 @@ export default function ProfilePage() {
     setSyncingId(syllabusId);
     try {
       await api.post(`/sync-syllabus/${syllabusId}`);
-      // Refresh the page data after a sync
-      const syllabiRes = await api.get("/syllabi").catch(() => ({ data: { syllabi: [] } }));
-      setSyllabi(syllabiRes.data.syllabi ?? []);
+      // Refresh the page data after a sync by calling the reusable component
+      await fetchSyllabi();
     } catch (error) {
       console.error("Failed to sync syllabus", error);
     } finally {
@@ -143,8 +158,8 @@ export default function ProfilePage() {
     setDeletingId(syllabusId);
     try {
       await api.delete(`/syllabi/${syllabusId}`);
-      const syllabiRes = await api.get("/syllabi").catch(() => ({ data: { syllabi: [] } }));
-      setSyllabi(syllabiRes.data.syllabi ?? []);
+      // Refetch the data after deleting
+      await fetchSyllabi();
     } catch (error) {
       console.error("Failed to delete syllabus", error);
     } finally {
@@ -277,11 +292,20 @@ export default function ProfilePage() {
                 <CalendarCheck size={16} className="text-primary" />
                 <h2 className="font-bold text-base">Google Calendar</h2>
               </div>
-              {gcalStatus === "connected" && (
-                <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
-                  <CheckCircle size={12} /> Connected
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchCalendarStatus}
+                  className="flex items-center gap-1.5 text-xs bg-muted/50 border border-border hover:border-primary/50 hover:bg-muted px-2 py-1 rounded-md transition-all"
+                  title="Manually check your connection status"
+                >
+                  <RefreshCw size={10} /> Check Status
+                </button>
+                {gcalStatus === "connected" && (
+                  <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
+                    <CheckCircle size={12} /> Connected
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
               Connect your Google Calendar to pull in real events, assign mental tax, and write new tasks back.
@@ -323,9 +347,18 @@ export default function ProfilePage() {
           {/* Uploaded Syllabi */}
 
           <section className="bg-card border border-border rounded-3xl p-6">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText size={16} className="text-primary" />
-              <h2 className="font-bold text-base">Uploaded Syllabi</h2>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-primary" />
+                <h2 className="font-bold text-base">Uploaded Syllabi</h2>
+              </div>
+              <button
+                onClick={fetchSyllabi}
+                className="flex items-center gap-1.5 text-xs bg-muted/50 border border-border hover:border-primary/50 hover:bg-muted px-2 py-1 rounded-md transition-all"
+                title="Manually refetch your parsed syllabi from the database"
+              >
+                <RefreshCw size={10} /> Refresh List
+              </button>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
               Syllabi you've uploaded. Tasks are reviewed against your schedule to avoid double-counting.

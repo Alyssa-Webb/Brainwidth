@@ -160,7 +160,7 @@ def _parse_gcal_event(event: dict, today: datetime.date) -> dict | None:
     }
 
 
-def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> list:
+async def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> list:
     """
     Fetches real Google Calendar events for the next 7 days.
     Caches AI classification to avoid Gemini API limits.
@@ -211,12 +211,8 @@ def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> l
         if db is not None:
             # Load user's cached event classifications
             try:
-                import asyncio
-                # Use sync wrapper for async motor call in this sync-ish function context
-                import motor.motor_asyncio
-                loop = asyncio.get_event_loop()
                 cursor = db.gcal_cache.find({"user_id": user_id})
-                docs = loop.run_until_complete(cursor.to_list(length=500))
+                docs = await cursor.to_list(length=500)
                 for d in docs:
                     cached_ai[d["event_id"]] = {"type": d["type"], "is_restful": d["is_restful"]}
             except Exception as e:
@@ -232,20 +228,18 @@ def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> l
         if raw_to_classify:
             print(f"[AI Calendar] Calling Gemini to classify {len(raw_to_classify)} NEW events...")
             try:
-                ai_mapping = classify_events_with_ai(raw_to_classify)
+                ai_mapping = await classify_events_with_ai(raw_to_classify)
             except Exception as e:
                 print(f"[AI Calendar] Skipping AI due to error: {e}")
                 
             # Save new ones to cache
             if db is not None and ai_mapping:
-                import asyncio
-                loop = asyncio.get_event_loop()
                 for eid, data in ai_mapping.items():
-                    loop.run_until_complete(db.gcal_cache.update_one(
+                    await db.gcal_cache.update_one(
                         {"user_id": user_id, "event_id": eid},
                         {"$set": {"type": data["type"], "is_restful": data["is_restful"]}},
                         upsert=True
-                    ))
+                    )
                     cached_ai[eid] = data # Add to local memory dict to merge
         
         # Merge classifications into final events
@@ -267,7 +261,7 @@ def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> l
         return _mock_events(today)
 
 
-def create_event(
+async def create_event(
     title: str,
     date: str,
     duration: float,

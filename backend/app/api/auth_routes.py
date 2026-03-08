@@ -19,7 +19,7 @@ async def signup(user: UserCreate, db: Any = Depends(get_db)):
     user_dict = user.model_dump()
     user_dict["hashed_password"] = get_password_hash(user_dict.pop("password"))
     # Set profile defaults
-    user_dict.setdefault("chronotype", "neutral")
+    user_dict.setdefault("chronotype", "bear")
     user_dict.setdefault("work_start_hour", 8)
     user_dict.setdefault("work_end_hour", 20)
     user_dict.setdefault("base_capacity", 8.0)

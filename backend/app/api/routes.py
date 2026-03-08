@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+import datetime
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
@@ -14,8 +15,7 @@ from app.services.recommendations import generate_recommendations
 
 router = APIRouter()
 
-# Temporary in-memory store for Google OAuth PKCE verifiers (state -> code_verifier)
-_oauth_verifiers: Dict[str, str] = {}
+# OAuth state persistence is now handled via MongoDB in the routes themselves.
 
 class TaskInput(BaseModel):
     id: str
@@ -89,9 +89,14 @@ async def gcal_authorize(current_user: dict = Depends(get_current_user)):
     auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
     
     # Save the code_verifier temporarily so the callback can use it (PKCE)
-    from app.api.routes import _oauth_verifiers
     if hasattr(flow, "code_verifier"):
-        _oauth_verifiers[state] = flow.code_verifier
+        db = get_db()
+        if db is not None:
+            await db.oauth_states.update_one(
+                {"state": state},
+                {"$set": {"code_verifier": flow.code_verifier, "created_at": datetime.datetime.utcnow()}},
+                upsert=True
+            )
 
     return {"auth_url": auth_url}
 
@@ -122,12 +127,19 @@ async def gcal_callback(code: str, state: str = ""):
     flow = Flow.from_client_secrets_file(str(creds_path), scopes=SCOPES, redirect_uri=REDIRECT_URI)
     
     # Retrieve the code_verifier saved during /authorize
-    from app.api.routes import _oauth_verifiers
-    code_verifier = _oauth_verifiers.get(state)
+    db = get_db()
+    code_verifier = None
+    if db is not None:
+        state_doc = await db.oauth_states.find_one({"state": state})
+        if state_doc:
+            code_verifier = state_doc.get("code_verifier")
     
     try:
         if code_verifier:
             flow.fetch_token(code=code, code_verifier=code_verifier)
+            # Clean up
+            if db is not None:
+                await db.oauth_states.delete_one({"state": state})
         else:
             flow.fetch_token(code=code)
             
@@ -249,7 +261,7 @@ async def optimize_week(
         
     today = datetime.datetime.utcnow().date()
     
-    gcal_events = fetch_events_next_7_days(user_id=str(current_user["_id"]), force_sync=force_sync)
+    gcal_events = await fetch_events_next_7_days(user_id=str(current_user["_id"]), force_sync=force_sync)
     
     fixed_load_per_day = [0.0] * 7
     for event in gcal_events:
@@ -270,6 +282,19 @@ async def optimize_week(
     if db is not None:
         cursor = db.tasks.find({"user_id": str(current_user["_id"])})
         flux_tasks = await cursor.to_list(length=100)
+        
+        # Inject demo schedule if this is the user's first time with an empty schedule
+        if not current_user.get("has_seen_demo") and len(flux_tasks) == 0 and len(gcal_events) == 0:
+            demo_tasks = [
+                {"user_id": str(current_user["_id"]), "title": "Review Q3 Strategy Docs", "duration": 2.0, "type": "Deep Work", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Clear Inbox & Slack", "duration": 0.5, "type": "Admin", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Design System Brainstorm", "duration": 1.5, "type": "Creative", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Update Project Tracker", "duration": 1.0, "type": "Admin", "is_fixed": False},
+            ]
+            await db.tasks.insert_many(demo_tasks)
+            await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"has_seen_demo": True}})
+            cursor = db.tasks.find({"user_id": str(current_user["_id"])})
+            flux_tasks = await cursor.to_list(length=100)
         
         # Inject demo schedule if this is the user's first time with an empty schedule
         if not current_user.get("has_seen_demo") and len(flux_tasks) == 0 and len(gcal_events) == 0:
@@ -668,7 +693,7 @@ async def get_recommendations(current_user: dict = Depends(get_current_user)):
     work_end = int(current_user.get("work_end_hour", 20))
     
     # Build a lightweight schedule snapshot
-    gcal_events = fetch_events_next_7_days()
+    gcal_events = await fetch_events_next_7_days(user_id=str(current_user["_id"]))
     fixed_load = [0.0] * 7
     for event in gcal_events:
         try:
@@ -822,5 +847,5 @@ async def get_gcal_events(current_user: dict = Depends(get_current_user)):
     each tagged with a mental_tax value computed from duration and task type.
     """
     from app.services.google_calendar import fetch_events_next_7_days
-    events = fetch_events_next_7_days()
+    events = await fetch_events_next_7_days(user_id=str(current_user["_id"]))
     return {"events": events, "count": len(events)}

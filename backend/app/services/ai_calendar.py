@@ -13,7 +13,7 @@ class AIEventClassification(BaseModel):
 class AIEventList(BaseModel):
     events: List[AIEventClassification]
 
-def classify_events_with_ai(events: list) -> dict:
+async def classify_events_with_ai(events: list) -> dict:
     """
     Takes a list of raw calendar events and uses Gemini to classify them simultaneously.
     Returns a dictionary mapping event_id -> {type, is_restful}
@@ -26,7 +26,7 @@ def classify_events_with_ai(events: list) -> dict:
     if not events:
         return {}
 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-native-audio-dialog", api_key=api_key, temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", api_key=api_key, temperature=0.1)
     structured_llm = llm.with_structured_output(AIEventList)
     
     # Prepare prompt data
@@ -51,7 +51,8 @@ def classify_events_with_ai(events: list) -> dict:
     
     try:
         print(f"[AI Calendar] Calling Gemini to classify {len(events)} events...")
-        result = structured_llm.invoke(prompt)
+        # structured_llm.invoke is sync, but we want async. ChatGoogleGenerativeAI supports ainvoke.
+        result = await structured_llm.ainvoke(prompt)
         
         mapping = {}
         for item in result.events:
