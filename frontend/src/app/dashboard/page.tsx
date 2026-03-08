@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [workStart, setWorkStart] = useState(7);
   const [workEnd, setWorkEnd] = useState(21);
   const [userName, setUserName] = useState("there");
+  const [cognitiveWeight, setCognitiveWeight] = useState(0);
   const [recsGeneratedAt, setRecsGeneratedAt] = useState<string | undefined>();
 
   // Load user profile for capacity/chronotype, then auto-generate schedule
@@ -55,6 +56,7 @@ export default function DashboardPage() {
       const data = response.data;
       setScheduledTasks(data.schedule);
       setCurrentLoad(data.max_daily_load);
+      setCognitiveWeight(data.cognitive_weight ?? 0);
       if (data.base_capacity) setBaseCapacity(data.base_capacity);
       // Extract today's load from Day 0
       const todayKey = Object.keys(data.schedule ?? {})[0];
@@ -188,8 +190,25 @@ export default function DashboardPage() {
                 <span className="font-mono font-semibold text-foreground">{currentLoad.toFixed(2)}τ</span>
               </div>
             </div>
-
-
+            
+            {/* Cognitive Weight Card */}
+            <div className="bg-card border border-border rounded-3xl p-5 shadow-sm">
+              <div className="mb-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <RefreshCw size={12} className="text-primary" />
+                  Cognitive Weight
+                </p>
+              </div>
+              <div className="flex items-end justify-between">
+                <div>
+                  <span className="text-3xl font-mono font-bold text-foreground">{(cognitiveWeight || 0).toFixed(2)}τ</span>
+                  <span className="text-xs text-muted-foreground ml-1.5">/ day</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 leading-tight">
+                Passive load from active syllabi. Taken directly from your AI analysis.
+              </p>
+            </div>
             {/* Decompression indicator */}
             {decompressMode && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4">

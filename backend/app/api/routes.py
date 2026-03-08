@@ -232,6 +232,7 @@ class OptimizedWeekResponse(BaseModel):
     max_daily_load: float
     is_overloaded: bool
     base_capacity: float
+    cognitive_weight: float = 0.0
     schedule: Dict[str, DailySchedule]
     ai_insights: List[str] = Field(default_factory=list)
     generated_at: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
@@ -572,6 +573,7 @@ async def optimize_week(
         max_daily_load=round(real_max, 2),
         is_overloaded=(real_max > base_capacity),
         base_capacity=base_capacity,
+        cognitive_weight=round(syllabi_load_per_day, 2),
         schedule=optimized_week,
         ai_insights=ai_insights,
         generated_at=datetime.datetime.utcnow().isoformat()
