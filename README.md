@@ -1,6 +1,6 @@
 # Brainwidth: Cognitive Load Scheduler
 
-Developed within 24hours of HACKCU12 2026, **Brainwidth** is a smart scheduling ecosystem designed to transform time management into **Energy Management**. Typical tools like Google Calendar and Outlook only provide linear time blocks, completely ignoring the "Mental Tax" of switching between a high-focus Calculus assignment and a tedious work meeting.
+Developed at HACKCU12 2026, **Brainwidth** is a smart scheduling ecosystem designed to transform time management into **Energy Management**. Typical tools like Google Calendar and Outlook only provide linear time blocks, completely ignoring the "Mental Tax" of switching between a high-focus Calculus assignment and a tedious work meeting.
 
 ---
 ## Run Locally
