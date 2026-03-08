@@ -221,6 +221,7 @@ class OptimizedTaskItem(BaseModel):
     type: Optional[str] = None
     is_break: Optional[bool] = False
     is_weight: Optional[bool] = False
+    is_all_day: bool = False
 
 class DailySchedule(BaseModel):
     total_load: float
@@ -409,21 +410,27 @@ async def optimize_week(
         for s in active_syllabi:
             penalty = s.get("daily_load_penalty", 0.0)
             course_name = s.get("course_name", "Unknown Course")
-            # Only add weight if it's a weekday (Monday=0, Friday=4) and penalty > 0
-            if penalty > 0 and day_date.weekday() < 5:
-                # Add as a flexible task so it can find a non-overlapping slot
-                optimized_week[day_key].tasks.append(OptimizedTaskItem(
-                    id=f"stem_penalty_{day_key}_{course_name}",
-                    source="Syllabus",
-                    title=f"Cognitive Weight | {round(penalty, 2)}τ | {course_name}",
-                    mental_tax=round(penalty, 2),
-                    is_fixed=False,  # Make it flexible to avoid overlaps
-                    duration=0.5, # Small fixed duration
-                    type="STEM",
-                    is_break=False,
-                    is_weight=True # Priority tag
-                ))
-                optimized_week[day_key].total_load += penalty
+            # Add as an all-day task
+            optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                id=f"stem_penalty_{day_key}_{course_name}",
+                source="Syllabus",
+                title=f"Cognitive Weight | {round(penalty, 2)}τ | {course_name}",
+                mental_tax=round(penalty, 2),
+                is_fixed=False,
+                duration=0.5,
+                type="STEM",
+                is_break=False,
+                is_weight=True,
+                is_all_day=True,
+                start_hour=None
+            ))
+            optimized_week[day_key].total_load += penalty
+            daily_task_buckets[day_key].append({
+                "duration": 0.5,
+                "mental_tax": penalty,
+                "type": "STEM",
+                "is_all_day": True
+            })
         
         # Add fixed Flux tasks for this day
         day_date = today + datetime.timedelta(days=i)
@@ -488,7 +495,8 @@ async def optimize_week(
                 "is_fixed": t.is_fixed,
                 "source": t.source,
                 "is_break": t.is_break,
-                "is_weight": t.is_weight
+                "is_weight": t.is_weight,
+                "is_all_day": t.is_all_day
             }
             for t in tasks_in_day
         ]
@@ -513,13 +521,15 @@ async def optimize_week(
                 duration=td.get("duration", 1.0),
                 type=td.get("type", "Break"),
                 is_break=td.get("is_break", td.get("mental_tax", 0) < 0),
-                is_weight=td.get("is_weight", False)
+                is_weight=td.get("is_weight", False),
+                is_all_day=td.get("is_all_day", False)
             ))
             daily_task_buckets[day_key].append({
                 "duration": td.get("duration", 0.25),
                 "mental_tax": td["mental_tax"],
                 "type": td.get("type", "Break"),
-                "start_hour": td.get("start_hour")
+                "start_hour": td.get("start_hour"),
+                "is_all_day": td.get("is_all_day", False)
             })
         optimized_week[day_key].tasks = new_task_items
 

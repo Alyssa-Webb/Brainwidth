@@ -72,7 +72,7 @@ def pick_goal_for_break(goals: list, gap_duration: float, hour: float) -> str:
     """
     
     try:
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key, temperature=0.7)
+        llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", api_key=api_key, temperature=0.7)
         structured_llm = llm.with_structured_output(GoalSelection)
         result = structured_llm.invoke(prompt)
         

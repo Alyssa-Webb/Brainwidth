@@ -123,6 +123,9 @@ def get_hourly_load_curve(
     current_hour = work_start_f
 
     for task in tasks:
+        if task.get("is_all_day"):
+            continue
+            
         duration = float(task.get("duration", 1.0) or 1.0)
         mental_tax = float(task.get("mental_tax", 0.0) or 0.0)
         tax_per_hour = mental_tax / max(duration, 0.01)
@@ -234,9 +237,13 @@ def build_decompression_breaks(
     day_end = float(max(peak["peak_end"], peak["secondary_end"], 23.9))
 
     # 1. Categorize Tasks
-    fixed = sorted([t for t in tasks if t.get("is_fixed")], key=lambda x: x.get("start_hour", 0))
-    weights = [t for t in tasks if t.get("is_weight") and not t.get("is_fixed")]
-    flexible = [t for t in tasks if not t.get("is_fixed") and not t.get("is_weight")]
+    # All-day tasks are handled separately (not scheduled by this engine)
+    all_day = [t for t in tasks if t.get("is_all_day")]
+    timed_tasks = [t for t in tasks if not t.get("is_all_day")]
+    
+    fixed = sorted([t for t in timed_tasks if t.get("is_fixed")], key=lambda x: x.get("start_hour", 0))
+    weights = [t for t in timed_tasks if t.get("is_weight") and not t.get("is_fixed")]
+    flexible = [t for t in timed_tasks if not t.get("is_fixed") and not t.get("is_weight")]
     
     if decompress:
         flexible.sort(key=lambda x: x.get("mental_tax", 0), reverse=True)
@@ -349,4 +356,4 @@ def build_decompression_breaks(
         
         cursor = sh + dur
 
-    return enriched
+    return all_day + enriched

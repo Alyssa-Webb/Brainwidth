@@ -54,7 +54,7 @@ def generate_ai_schedule_insights(user: dict, schedule: dict) -> list:
     If everything looks great, tell them why.
     """
     
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key, temperature=0.2)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", api_key=api_key, temperature=0.2)
     structured_llm = llm.with_structured_output(AIInsightList)
     
     try:

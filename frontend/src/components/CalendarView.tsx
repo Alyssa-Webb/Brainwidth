@@ -16,6 +16,7 @@ interface TaskItem {
   duration?: number;
   is_break?: boolean;
   is_weight?: boolean;
+  is_all_day?: boolean;
 }
 
 interface DaySchedule {
@@ -184,10 +185,11 @@ function WeekGrid({
           const hourlyLoad = dayData?.hourly_load ?? Array(24).fill(0);
           const loadColor = getLoadColor(load, baseCapacity);
 
-          // Resolve start_hour for every task: use the field if present and valid,
-          // otherwise fall back to workStart. Never use loop index as a fallback —
-          // that caused tasks to pile up at offset 0 when start_hour was missing.
-          const tasksWithHours = tasks.map((task) => ({
+          // Separate all-day tasks from timed tasks
+          const allDayTasks = tasks.filter(t => t.is_all_day);
+          const timedTasks = tasks.filter(t => !t.is_all_day);
+
+          const tasksWithHours = timedTasks.map((task) => ({
             ...task,
             resolvedStartHour:
               typeof task.start_hour === "number" && isFinite(task.start_hour)
@@ -195,7 +197,7 @@ function WeekGrid({
                 : workStart,
           }));
 
-          // Compute non-overlapping column layout so tasks never render on top of each other
+          // Compute non-overlapping column layout for timed tasks only
           const layoutTasks = resolveOverlaps(tasksWithHours);
 
           return (
@@ -223,6 +225,21 @@ function WeekGrid({
                   {load.toFixed(2)}τ
                 </span>
               </div>
+
+              {/* All-day weights section */}
+              {allDayTasks.length > 0 && (
+                <div className="flex flex-col gap-1 p-1 bg-muted/20 border-x border-border min-h-[24px]">
+                  {allDayTasks.map((task) => (
+                    <div
+                      key={task.id || task.title}
+                      className="text-[9px] px-1.5 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-black truncate transition-transform hover:scale-[1.03] cursor-default shadow-sm"
+                      title={`${task.title} — +${task.mental_tax.toFixed(2)}τ`}
+                    >
+                      {task.title}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Time grid body */}
               <div
