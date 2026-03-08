@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/auth";
-import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2 } from "lucide-react";
+import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2, RefreshCw, Book, Brain, Trash2 } from "lucide-react";
 import LoadMeter from "@/components/LoadMeter";
 
 const CHRONOTYPE_OPTIONS = [
@@ -36,6 +36,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -64,6 +66,17 @@ export default function ProfilePage() {
         setLoading(false);
       }
     };
+    
+    // Check if we just came back from Google OAuth via full-page redirect
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("gcal") === "connected") {
+        setGcalStatus("connected");
+        // Clean up URL without refreshing the page
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     loadProfile();
   }, []);
 
@@ -72,22 +85,8 @@ export default function ProfilePage() {
     try {
       const res = await api.get("/auth/gcal/authorize");
       const authUrl = res.data.auth_url;
-      // Open consent screen in a popup
-      const popup = window.open(authUrl, "gcal_auth", "width=500,height=650,scrollbars=yes");
-      // Poll every 3s to see if token was saved
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.get("/auth/gcal/status");
-          if (status.data.connected) {
-            clearInterval(poll);
-            setGcalStatus("connected");
-            setGcalConnecting(false);
-            popup?.close();
-          }
-        } catch { /* keep polling */ }
-      }, 3000);
-      // Stop polling after 2 min
-      setTimeout(() => { clearInterval(poll); setGcalConnecting(false); }, 120000);
+      // Direct redirect instead of popup to avoid connection refused/blocked issues
+      window.location.href = authUrl;
     } catch (e) {
       console.error("Failed to get GCal auth URL", e);
       setGcalConnecting(false);
@@ -121,6 +120,33 @@ export default function ProfilePage() {
     if (g && !profile.goals.includes(g)) {
       setProfile(p => ({ ...p, goals: [...p.goals, g] }));
       setNewGoal("");
+    }
+  };
+
+  const handleSyncSyllabus = async (syllabusId: string) => {
+    setSyncingId(syllabusId);
+    try {
+      await api.post(`/sync-syllabus/${syllabusId}`);
+      // Refresh the page data after a sync
+      const syllabiRes = await api.get("/syllabi").catch(() => ({ data: { syllabi: [] } }));
+      setSyllabi(syllabiRes.data.syllabi ?? []);
+    } catch (error) {
+      console.error("Failed to sync syllabus", error);
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleDeleteSyllabus = async (syllabusId: string) => {
+    setDeletingId(syllabusId);
+    try {
+      await api.delete(`/syllabi/${syllabusId}`);
+      const syllabiRes = await api.get("/syllabi").catch(() => ({ data: { syllabi: [] } }));
+      setSyllabi(syllabiRes.data.syllabi ?? []);
+    } catch (error) {
+      console.error("Failed to delete syllabus", error);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -389,17 +415,37 @@ export default function ProfilePage() {
                         <FileText size={16} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{s.filename}</p>
-                        <p className="text-xs text-muted-foreground">{date}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="flex items-center gap-1 text-xs text-emerald-500">
-                          <CheckCircle size={11} />
-                          <span>{s.task_count} tasks saved</span>
-                        </div>
-                        {s.skipped_count > 0 && (
-                          <p className="text-xs text-muted-foreground">{s.skipped_count} skipped (duplicates)</p>
+                        <p className="text-sm font-semibold truncate">{s.course_name || s.filename}</p>
+                        <p className="text-xs text-muted-foreground">{s.filename !== s.course_name ? s.filename : ""} • {date}</p>
+                        {s.reasoning && (
+                           <p className="text-[10px] text-muted-foreground/80 mt-1 truncate" title={s.reasoning}>{s.reasoning}</p>
                         )}
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1 text-xs font-bold text-purple-500 bg-purple-500/10 px-2 py-1 rounded-lg">
+                          <span>+{s.daily_load_penalty?.toFixed(2)}τ / day</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSyncSyllabus(s.id)}
+                            disabled={syncingId === s.id || deletingId === s.id}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                            title="Re-sync and analyze syllabus with AI"
+                          >
+                            <RefreshCw size={10} className={syncingId === s.id ? "animate-spin" : ""} />
+                            {syncingId === s.id ? "Syncing..." : "Sync AI"}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDeleteSyllabus(s.id)}
+                            disabled={deletingId === s.id || syncingId === s.id}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                            title="Remove class and its baseline daily load"
+                          >
+                            <Trash2 size={10} />
+                            {deletingId === s.id ? "Deleting..." : "Remove"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

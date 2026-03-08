@@ -12,6 +12,7 @@ interface TaskItem {
   location?: string;
   priority?: string;
   duration?: number;
+  is_break?: boolean;
 }
 
 interface DaySchedule {
@@ -69,8 +70,10 @@ function getTaskColor(tax: number, capacity: number): string {
   return "bg-emerald-500/15 border-emerald-500/30 text-emerald-400";
 }
 
-function getTaskBg(isFixed: boolean, tax: number, capacity: number): string {
-  if (isFixed) return "bg-blue-500/15 border-blue-500/30";
+function getTaskBg(isFixed: boolean, tax: number, capacity: number, isBreak: boolean = false, source: string = ""): string {
+  if (isBreak) return "bg-emerald-500/20 border-emerald-500/40 text-emerald-500";
+  if (source === "Syllabus") return "bg-purple-500/15 border-purple-500/30 text-foreground";
+  if (isFixed) return "bg-blue-500/15 border-blue-500/30 text-foreground";
   return getTaskColor(tax, capacity);
 }
 
@@ -133,7 +136,7 @@ function WeekGrid({
                   {todayCol && <span className="ml-1 bg-primary text-primary-foreground text-[8px] px-1 rounded">TODAY</span>}
                 </span>
                 <span className="text-xs font-semibold">{date}</span>
-                <span className={`text-[9px] font-mono ${loadColor}`}>{load.toFixed(1)}τ</span>
+                <span className={`text-[9px] font-mono ${loadColor}`}>{load.toFixed(2)}τ</span>
               </div>
 
               {/* Time grid body */}
@@ -186,19 +189,25 @@ function WeekGrid({
                   return (
                     <div
                       key={i}
-                      className={`absolute left-1 right-1 rounded-lg border text-[10px] leading-tight px-1.5 py-1 overflow-hidden z-10 shadow-sm cursor-default hover:z-30 hover:scale-[1.03] transition-transform ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity)}`}
+                      className={`absolute left-1 right-1 rounded-lg border text-[10px] leading-tight px-1.5 py-1 overflow-hidden z-10 shadow-sm cursor-default hover:z-30 hover:scale-[1.03] transition-transform ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}
                       style={{ top: topOffset, height: blockHeight }}
-                      title={`${task.title}${task.location ? ` @ ${task.location}` : ""} — ${task.mental_tax}τ`}
+                      title={`${task.title}${task.location ? ` @ ${task.location}` : ""} — ${task.is_break ? "-" : "+"}${task.mental_tax}τ`}
                     >
                       <p className="font-semibold truncate">{task.title}</p>
                       {blockHeight > 35 && (
                         <>
                           {task.location && <p className="opacity-60 truncate">{task.location}</p>}
-                          <p className="font-mono opacity-80">+{task.mental_tax?.toFixed(1) ?? "-"}τ</p>
+                          <p className="font-mono opacity-80">{task.is_break ? "-" : "+"}{task.mental_tax?.toFixed(2) ?? "-"}τ</p>
                         </>
                       )}
-                      {task.is_fixed && (
+                      {task.is_fixed && !task.is_break && task.source !== "Syllabus" && (
                         <span className="absolute top-1 right-1 text-[7px] bg-blue-500/30 text-blue-300 px-1 rounded">GCal</span>
+                      )}
+                      {task.is_fixed && !task.is_break && task.source === "Syllabus" && (
+                        <span className="absolute top-1 right-1 text-[7px] bg-purple-500/30 text-purple-300 px-1 rounded">Class Load</span>
+                      )}
+                      {task.is_break && (
+                        <span className="absolute top-1 right-1 text-[7px] bg-emerald-500/30 text-emerald-500 px-1 rounded">Break</span>
                       )}
                     </div>
                   );
@@ -247,13 +256,13 @@ function MonthList({
                   {todayCol && <span className="ml-2 bg-primary text-primary-foreground text-[9px] px-2 py-0.5 rounded-full">Today</span>}
                 </h4>
               </div>
-              <span className={`text-sm font-bold ${getLoadColor(load, baseCapacity)}`}>{load.toFixed(1)}τ</span>
+              <span className={`text-sm font-bold ${getLoadColor(load, baseCapacity)}`}>{load.toFixed(2)}τ</span>
             </div>
             <CognitiveLoadChart hourlyLoad={hourlyLoad} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} height={55} />
             <div className="mt-3 flex flex-wrap gap-2">
               {dayData.tasks.map((task, i) => (
-                <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${getTaskColor(task.mental_tax, baseCapacity)}`}>
-                  {task.title} (+{task.mental_tax?.toFixed(1)}τ)
+                <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}>
+                  {task.title} ({task.is_break ? "-" : "+"}{task.mental_tax?.toFixed(2)}τ)
                 </span>
               ))}
             </div>

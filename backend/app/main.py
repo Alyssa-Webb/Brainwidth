@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     await close_db()
 
-app = FastAPI(title="Flux Scheduler API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Brainwidth Scheduler API", version="1.0.0", lifespan=lifespan)
 
 # Allow requests from the Next.js frontend
 app.add_middleware(

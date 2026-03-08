@@ -10,16 +10,10 @@ from dotenv import load_dotenv
 # Load from root directory
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env"))
 
-class ExtractedTask(BaseModel):
-    title: str = Field(description="The title of the assignment, reading, or task.")
-    duration: float = Field(description="Estimated duration in hours to complete the task. Default to 1.0 if unknown.")
-    type: str = Field(description="The type of the task (e.g., 'STEM', 'Deep Work', 'Creative', 'Reading', 'Writing', 'Admin').")
-    cognitive_weight: float = Field(description="The cognitive weight mapping from 0.1 to 1.0 based on technical complexity.")
-    due_date: str = Field(description="The due date of the assignment in ISO format (YYYY-MM-DDTHH:MM:SS) if found, else return 'None'.")
-    technical_complexity: str = Field(description="Brief description of the difficulty and complexity based on keywords like 'proof', 'implement', 'derive'.")
-
-class TaskExtraction(BaseModel):
-    tasks: List[ExtractedTask] = Field(description="List of tasks extracted from the document.")
+class ClassDifficulty(BaseModel):
+    course_name: str = Field(description="The name of the course or class.")
+    difficulty_score: float = Field(description="A daily cognitive load penalty from 0.5 to 2.0. 0.5 is very easy, 1.0 is average, 2.0 is exceptionally difficult.")
+    reasoning: str = Field(description="Brief justification for the assigned difficulty score.")
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extracts all text from a PDF file."""
@@ -31,8 +25,8 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             text += page_text + "\n"
     return text
 
-def parse_syllabus_and_extract_tasks(file_bytes: bytes) -> List[dict]:
-    """Parse PDF, extract text, and use Gemini Flash to identify tasks."""
+def parse_syllabus_and_extract_tasks(file_bytes: bytes) -> dict:
+    """Parse PDF, extract text, and use Gemini Flash to identify overall class difficulty."""
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is not set. Please set it to use the AI Parser.")
@@ -42,52 +36,35 @@ def parse_syllabus_and_extract_tasks(file_bytes: bytes) -> List[dict]:
     print(f"Extracted {len(text)} characters.")
     
     # Initialize Gemini Flash via LangChain
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_key, temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key, temperature=0.1)
     
     # Create structured output
-    structured_llm = llm.with_structured_output(TaskExtraction)
+    structured_llm = llm.with_structured_output(ClassDifficulty)
     
     prompt = f"""
-    You are an AI assistant for "Flux", a cognitive load scheduling application.
-    Analyze the following syllabus or document text. Find all assignments, exams, readings, and deliverables.
+    You are an AI assistant for "Brainwidth", a cognitive load scheduling application.
+    Analyze the following syllabus or document text to determine the overall difficulty of the class.
     
-    For each item, extract:
-    - Title
-    - Estimated Duration (in hours)
-    - Type (e.g., 'STEM', 'Reading', 'Writing', 'Deep Work', 'Admin')
-    - Due Date (Format: YYYY-MM-DDTHH:MM:SS or 'None' if unspecified)
-    
-    Crucially, determine the 'Technical Complexity' and assign a 'cognitive_weight' (from 0.1 to 1.0).
-    - Look for technical keywords like 'proof', 'implement', 'derive', 'analyze', 'calculate', 'design'.
-    - If many technical keywords are present, assign a high cognitive_weight (e.g., 0.8 to 1.0).
-    - If it's pure reading or simple admin, assign a lower weight (e.g., 0.2 to 0.4).
+    Extract the following:
+    - Course Name
+    - Difficulty Score: A daily cognitive load penalty from 0.5 to 2.0. 
+        - 0.5: Very easy, minimal daily effort (e.g. elective, light reading)
+        - 0.8: Below average workload
+        - 1.0: Standard class
+        - 1.5: Difficult class (e.g. advanced STEM, heavy project-based, fast-paced summer course)
+        - 2.0: Exceptionally demanding (graduate-level, extreme workload, high failure rate)
+    - Reasoning: A short 1-2 sentence justification for this score based on the syllabus contents (e.g., exams, grading scale, assignments).
     
     Document Text:
     {text}
     """
     
-    print("Calling Gemini Flash LLM to extract tasks...")
+    print("Calling Gemini Flash LLM to analyze course difficulty...")
     result = structured_llm.invoke(prompt)
-    print(f"Extracted {len(result.tasks)} tasks from the LLM.")
+    print(f"Extracted Course: {result.course_name} with score {result.difficulty_score}")
     
-    tasks_to_return = []
-    for task in result.tasks:
-        # Try parsing date, default to current time if parsing fails or returns 'None'
-        try:
-            if task.due_date and task.due_date.lower() != 'none':
-                parsed_date = datetime.fromisoformat(task.due_date.replace('Z', '+00:00'))
-            else:
-                parsed_date = datetime.utcnow()
-        except Exception:
-            parsed_date = datetime.utcnow()
-            
-        tasks_to_return.append({
-            "title": task.title,
-            "duration": task.duration,
-            "type": task.type,
-            "cognitive_weight": task.cognitive_weight,
-            "due_date": parsed_date,
-            "vector_embedding": [0.0] * 1536  # Placeholder vector embedding for MongoDB
-        })
-        
-    return tasks_to_return
+    return {
+        "title": result.course_name,
+        "mental_tax": round(result.difficulty_score, 2),
+        "reasoning": result.reasoning
+    }

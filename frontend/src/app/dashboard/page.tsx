@@ -5,7 +5,7 @@ import { api } from "@/lib/auth";
 import LoadMeter from "@/components/LoadMeter";
 import CalendarView from "@/components/CalendarView";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
-import { Sparkles, ArrowRight, BedDouble, Calendar, CalendarDays, User } from "lucide-react";
+import { Sparkles, ArrowRight, BedDouble, Calendar, CalendarDays, User, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [todayLoad, setTodayLoad] = useState(0);
   const [baseCapacity, setBaseCapacity] = useState(8.0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [decompressMode, setDecompressMode] = useState(false);
   const [view, setView] = useState<"week" | "month">("week");
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -42,11 +43,13 @@ export default function DashboardPage() {
     init();
   }, []);
 
-  const generateSchedule = async (decompress: boolean = false) => {
-    setIsGenerating(true);
+  const generateSchedule = async (decompress: boolean = false, forceSync: boolean = false) => {
+    if (forceSync) setIsSyncing(true);
+    else setIsGenerating(true);
+    
     setDecompressMode(decompress);
     try {
-      const response = await api.get(`/optimize?decompress=${decompress}`);
+      const response = await api.get(`/optimize?decompress=${decompress}&force_sync=${forceSync}`);
       const data = response.data;
       setScheduledTasks(data.schedule);
       setCurrentLoad(data.max_daily_load);
@@ -60,6 +63,7 @@ export default function DashboardPage() {
       console.error("Failed to generate schedule", error);
     } finally {
       setIsGenerating(false);
+      setIsSyncing(false);
     }
   };
 
@@ -126,10 +130,21 @@ export default function DashboardPage() {
               Decompression
             </button>
 
+            {/* Sync Calendar Button */}
+            <button
+              onClick={() => generateSchedule(decompressMode, true)}
+              disabled={isGenerating || isSyncing}
+              className="flex items-center gap-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border py-2 px-3 rounded-xl text-xs transition-all disabled:opacity-50"
+              title="Force a re-scan of your Google Calendar using AI. Costs time and tokens."
+            >
+              <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
+              {isSyncing ? "Syncing AI..." : "Sync Calendar"}
+            </button>
+
             {/* Optimize Button */}
             <button
-              onClick={() => generateSchedule(false)}
-              disabled={isGenerating}
+              onClick={() => generateSchedule(decompressMode, false)}
+              disabled={isGenerating || isSyncing}
               className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-xl text-xs transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
             >
               {isGenerating ? (
@@ -164,7 +179,7 @@ export default function DashboardPage() {
               <LoadMeter currentLoad={todayLoad} maxLoad={baseCapacity} />
               <div className="mt-3 pt-3 border-t border-border flex justify-between text-xs text-muted-foreground">
                 <span>Week peak</span>
-                <span className="font-mono font-semibold text-foreground">{currentLoad.toFixed(1)}τ</span>
+                <span className="font-mono font-semibold text-foreground">{currentLoad.toFixed(2)}τ</span>
               </div>
             </div>
 

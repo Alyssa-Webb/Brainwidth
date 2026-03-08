@@ -69,7 +69,6 @@ def _infer_type(summary: str, description: str = "") -> str:
 def _get_credentials():
     """Loads OAuth2 credentials, running local server flow if no token exists."""
     from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
 
     # Find credentials.json
@@ -91,11 +90,11 @@ def _get_credentials():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            with open(str(token_path), "w") as token:
+                token.write(creds.to_json())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(str(creds_path), SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(str(token_path), "w") as token:
-            token.write(creds.to_json())
+            # If no valid token exists, return None. The user must connect via the frontend > /api/auth/gcal/authorize
+            return None
 
     return creds
 
@@ -139,11 +138,13 @@ def _parse_gcal_event(event: dict, today: datetime.date) -> dict | None:
     location    = event.get("location", "")
     event_id    = event.get("id", f"gcal_{day_offset}")
 
+    # We now skip computing tax here if AI classification runs, but provide fallback in case AI is disabled
     event_type  = _infer_type(summary, description)
-    # Compute signed tax — pass title so is_restful() can detect gym/meditation etc.
     tax, _      = calculate_mental_tax(duration_hours, event_type, title=summary)
 
+    # _parse_gcal_event acts as a pre-filter now. We attach the raw dict for the AI layer
     return {
+        "_raw_event": event,
         "id": event_id,
         "title": summary,
         "duration": round(duration_hours, 2),
@@ -159,9 +160,10 @@ def _parse_gcal_event(event: dict, today: datetime.date) -> dict | None:
     }
 
 
-def fetch_events_next_7_days() -> list:
+def fetch_events_next_7_days(user_id: str = None, force_sync: bool = False) -> list:
     """
     Fetches real Google Calendar events for the next 7 days.
+    Caches AI classification to avoid Gemini API limits.
     Falls back to mock events if credentials.json is not found.
     """
     today = datetime.datetime.utcnow().date()
@@ -188,12 +190,76 @@ def fetch_events_next_7_days() -> list:
             .execute()
         )
         raw_events = events_result.get("items", [])
+        from app.services.ai_calendar import classify_events_with_ai
+        
         events = []
         for ev in raw_events:
             parsed = _parse_gcal_event(ev, today)
             if parsed:
                 events.append(parsed)
-        print(f"[GCal] Fetched {len(events)} real events from Google Calendar.")
+                
+        # Optional Caching Logic
+        db = None
+        if user_id:
+            from app.services.db_service import get_db
+            try:
+                db = get_db()
+            except Exception:
+                pass
+                
+        cached_ai = {}
+        if db is not None:
+            # Load user's cached event classifications
+            try:
+                import asyncio
+                # Use sync wrapper for async motor call in this sync-ish function context
+                import motor.motor_asyncio
+                loop = asyncio.get_event_loop()
+                cursor = db.gcal_cache.find({"user_id": user_id})
+                docs = loop.run_until_complete(cursor.to_list(length=500))
+                for d in docs:
+                    cached_ai[d["event_id"]] = {"type": d["type"], "is_restful": d["is_restful"]}
+            except Exception as e:
+                print(f"[GCal] Cache fetch error: {e}")
+
+        # Batch classify via AI, ONLY for new events not in cache or if forced
+        raw_to_classify = []
+        for ev in events:
+            if force_sync or ev["id"] not in cached_ai:
+                raw_to_classify.append(ev["_raw_event"])
+                
+        ai_mapping = {}
+        if raw_to_classify:
+            print(f"[AI Calendar] Calling Gemini to classify {len(raw_to_classify)} NEW events...")
+            try:
+                ai_mapping = classify_events_with_ai(raw_to_classify)
+            except Exception as e:
+                print(f"[AI Calendar] Skipping AI due to error: {e}")
+                
+            # Save new ones to cache
+            if db is not None and ai_mapping:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                for eid, data in ai_mapping.items():
+                    loop.run_until_complete(db.gcal_cache.update_one(
+                        {"user_id": user_id, "event_id": eid},
+                        {"$set": {"type": data["type"], "is_restful": data["is_restful"]}},
+                        upsert=True
+                    ))
+                    cached_ai[eid] = data # Add to local memory dict to merge
+        
+        # Merge classifications into final events
+        for ev in events:
+            ev.pop("_raw_event", None)  # clean up temp data
+            if ev["id"] in cached_ai:
+                ai_data = cached_ai[ev["id"]]
+                ev["type"] = ai_data["type"]
+                ev["is_restful"] = ai_data["is_restful"]
+                # Recompute tax based on AI type
+                tax, _ = calculate_mental_tax(ev["duration"], ev["type"], title=ev["title"])
+                ev["mental_tax"] = round(tax, 2)
+                
+        print(f"[GCal] Fetched {len(events)} events (AI processed).")
         return events
 
     except Exception as e:
@@ -236,7 +302,7 @@ def create_event(
             body = {
                 "summary": title,
                 "location": location,
-                "description": f"Added via Flux · Type: {event_type} · Tax: {round(tax, 2)}τ",
+                "description": f"Added via Brainwidth · Type: {event_type} · Tax: {round(tax, 2)}τ",
                 "start": {"dateTime": start_dt.isoformat(), "timeZone": "UTC"},
                 "end":   {"dateTime": end_dt.isoformat(),   "timeZone": "UTC"},
             }

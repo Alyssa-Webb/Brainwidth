@@ -30,7 +30,7 @@ export default function LoadMeter({ currentLoad, maxLoad }: { currentLoad: numbe
         </div>
         <div className="text-right">
           <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70">
-            {currentLoad.toFixed(1)}
+            {currentLoad.toFixed(2)}
           </span>
           <span className="text-gray-500 dark:text-white/50 text-sm ml-1">/ {maxLoad} u</span>
         </div>

@@ -41,7 +41,3 @@ yarn-error.log*
 next-env.d.ts
 
 /venv
-token.json
-credentials.json
-PLAN.md
-backend/server_log.txt
