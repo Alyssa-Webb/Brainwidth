@@ -83,18 +83,6 @@ export default function DashboardPage() {
         <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/10 mix-blend-multiply filter blur-[120px]" />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border px-8 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="w-8 h-8 text-primary" />
-          <span className="text-xl font-bold tracking-tight">Brainwidth</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm font-medium">
-          <span className="text-muted-foreground hidden sm:block">Hello, Alyssa!</span>
-          <ThemeToggle />
-        </div>
-      </header>
-
       <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-8">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-140px)]">

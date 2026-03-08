@@ -21,13 +21,6 @@ export default function LandingPage() {
       <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-700 duration-1000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
 
-      {/* Theme Toggle Button */}
-      {mounted && (
-        <div className="absolute top-8 right-8 z-50">
-          <ThemeToggle />
-        </div>
-      )}
-
       <main className="flex flex-col items-center max-w-4xl w-full gap-12 text-center z-10 mt-12">
         
         {/* Hero Section */}
