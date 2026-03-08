@@ -43,17 +43,17 @@ export default function SignupPage() {
         email: formData.email,
         password: formData.password
       });
-      
+
       if (response.data) {
         // Auto-login instantly after signup
         const loginForm = new URLSearchParams();
         loginForm.append("username", formData.email);
         loginForm.append("password", formData.password);
-        
+
         const loginRes = await axios.post("http://localhost:8000/api/auth/login", loginForm, {
           headers: { "Content-Type": "application/x-www-form-urlencoded" }
         });
-        
+
         if (loginRes.data && loginRes.data.access_token) {
           setToken(loginRes.data.access_token);
           setUser({ email: formData.email, name: formData.name });
@@ -74,17 +74,13 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-background transition-colors duration-300 relative overflow-hidden">
-      {/* Background Gradients */}
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse duration-1000"></div>
-      <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-700 duration-1000"></div>
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
 
       <div className="w-full max-w-xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-8 z-10 glassmorphism relative">
         <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Home
         </Link>
-        
+
         <h1 className="text-3xl font-bold mb-2">Create an account</h1>
         <p className="text-muted-foreground mb-8">Start managing your time without the mental tax.</p>
 
@@ -96,7 +92,7 @@ export default function SignupPage() {
         )}
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none" htmlFor="name">
@@ -201,7 +197,7 @@ export default function SignupPage() {
               <option value="grad-phd">Graduate - PhD</option>
             </select>
           </div>
-          
+
           <button
             type="submit"
             disabled={isLoading}

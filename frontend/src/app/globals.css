@@ -40,10 +40,10 @@
   }
 
   .dark {
-    --background: #0a0a0a;
+    --background: #000000;
     --foreground: #ededed;
     
-    --card: #141414;
+    --card: #0a0a0a;
     --card-foreground: #ededed;
     
     --popover: #141414;

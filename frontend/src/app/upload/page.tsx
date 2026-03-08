@@ -48,7 +48,7 @@ export default function UploadPage() {
   const processUploads = async () => {
     if (files.length === 0) return;
     setIsProcessing(true);
-    
+
     try {
       for (const file of files) {
         const formData = new FormData();
@@ -69,37 +69,45 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-background transition-colors duration-300 relative overflow-hidden">
-      <div className="absolute top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 mix-blend-multiply filter blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-purple-500/20 mix-blend-multiply filter blur-[100px] pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-[#fffde7] dark:bg-background transition-colors duration-300 relative overflow-hidden">
 
-      <div className="w-full max-w-3xl bg-card text-card-foreground rounded-3xl border border-border shadow-2xl p-8 sm:p-12 z-10 glassmorphism relative">
+      <style>{`
+        /* Overrides Next.js body background. By setting this to the navbar color, the top overscroll matches the navbar! */
+        html, body { background-color: #fff9c4 !important; }
+        html.dark, html.dark body { background-color: #000000 !important; }
+      `}</style>
+
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-50 dark:opacity-100">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-4xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-6 sm:p-8 z-10 relative">
         <Link href="/quiz" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Quiz
         </Link>
-        
+
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold mb-4">Upload your Syllabi</h1>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Drag and drop your course syllabi (PDFs). Brainwidth's AI will automatically extract your assignments and compute their cognitive load.
+            Drag and drop your course syllabi (PDFs). Brainwidth's AI will automatically extract your assignments and compute cognitive load.
           </p>
         </div>
 
         <form onDragEnter={handleDrag} onSubmit={(e) => e.preventDefault()} className="max-w-xl mx-auto">
           {/* File Dropzone */}
-          <div 
-            className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl transition-all ${
-              dragActive ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-border bg-muted/50 hover:bg-muted/80'
-            }`}
+          <div
+            className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl transition-all ${dragActive ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-border bg-muted/50 hover:bg-muted/80'
+              }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            <input 
-              type="file" 
-              multiple 
+            <input
+              type="file"
+              multiple
               accept="application/pdf"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               onChange={handleChange}
@@ -128,7 +136,7 @@ export default function UploadPage() {
                       <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => removeFile(file.name)}
                     className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors shrink-0"
                   >
@@ -144,13 +152,12 @@ export default function UploadPage() {
             <button
               onClick={processUploads}
               disabled={files.length === 0 || isProcessing}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 h-14 text-lg font-bold transition-all shadow-lg ${
-                files.length === 0 
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                  : isProcessing
-                    ? 'bg-primary/80 text-primary-foreground cursor-wait'
-                    : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-primary/20'
-              }`}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 h-14 text-lg font-bold transition-all shadow-lg ${files.length === 0
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                : isProcessing
+                  ? 'bg-primary/80 text-primary-foreground cursor-wait'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-primary/20'
+                }`}
             >
               {isProcessing ? (
                 <>

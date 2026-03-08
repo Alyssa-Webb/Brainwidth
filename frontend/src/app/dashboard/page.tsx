@@ -104,10 +104,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 font-sans">
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
-        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
-      </div>
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-4 py-6">
 
@@ -140,8 +136,8 @@ export default function DashboardPage() {
               onClick={handleDecompress}
               disabled={isGenerating}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${decompressMode
-                  ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
-                  : "bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
+                ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
+                : "bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
                 } disabled:opacity-50`}
             >
               <BedDouble size={14} />

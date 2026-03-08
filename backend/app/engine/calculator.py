@@ -39,7 +39,6 @@ CHRONOTYPE_PEAKS = {
     "lion": {"peak_start": 5, "peak_end": 10, "secondary_start": 5, "secondary_end": 12},
     "bear": {"peak_start": 10, "peak_end": 14, "secondary_start": 10, "secondary_end": 14},
     "wolf": {"peak_start": 12, "peak_end": 15, "secondary_start": 17, "secondary_end": 21},
-    "night_owl": {"peak_start": 20, "peak_end": 24, "secondary_start": 16, "secondary_end": 18},
     "dolphin": {"peak_start": 10, "peak_end": 13, "secondary_start": 10, "secondary_end": 13},
 }
 
@@ -309,8 +308,10 @@ def build_decompression_breaks(
                 title = "🌿 Gap Recovery"
                 if gap >= 1.0:
                     import random
-                    if goals and random.random() > 0.3:
-                        title = f"🌟 Goal: {random.choice(goals)}"
+                    from app.services.ai_service import pick_goal_for_break
+                    if goals and len(goals) > 0 and random.random() < 0.5:
+                        chosen_goal = pick_goal_for_break(goals, gap, start_gap)
+                        title = f"🌟 Goal: {chosen_goal}"
                     else:
                         title = "🌙 Scheduled Rest"
 

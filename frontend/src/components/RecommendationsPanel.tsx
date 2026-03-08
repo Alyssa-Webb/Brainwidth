@@ -36,8 +36,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 const CHRONOTYPE_LABELS: Record<string, string> = {
   lion: "🦁 Lion",
   bear: "🐻 Bear",
-  wolf: "🐺 Wolf",
-  night_owl: "🦉 Night Owl",
+  wolf: "🐺 Wolf (Night Owl)",
   dolphin: "🐬 Dolphin",
 };
 
@@ -45,7 +44,6 @@ const CHRONOTYPE_HOURS: Record<string, { work: string, rest: string }> = {
   lion: { work: "8 AM - 12 PM, 2 PM - 4 PM", rest: "12 PM - 2 PM, After 5 PM" },
   bear: { work: "10 AM - 2 PM, 4 PM - 6 PM", rest: "2 PM - 4 PM, After 6 PM" },
   wolf: { work: "2 PM - 6 PM, 8 PM - 10 PM", rest: "Morning, 6 PM - 8 PM" },
-  night_owl: { work: "8 PM - 12 AM, 2 PM - 4 PM", rest: "Morning, 4 PM - 8 PM" },
   dolphin: { work: "10 AM - 12 PM, 4 PM - 6 PM", rest: "12 PM - 4 PM, After 6 PM" },
 };
 

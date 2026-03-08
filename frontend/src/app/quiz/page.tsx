@@ -64,21 +64,21 @@ const BASE_CAPACITY = 8.0;
 /* ─── Scoring Logic ────────────────────────────────────────────────────────── */
 
 function computeProfile(answers: Record<string, number>) {
-  const scores = { lion: 0, bear: 0, wolf: 0, night_owl: 0, dolphin: 0 };
+  const scores = { lion: 0, bear: 0, wolf: 0, dolphin: 0 };
   let capacityDelta = 0;
 
   QUESTIONS.forEach((q) => {
     const optionIdx = answers[q.id];
     if (optionIdx === undefined) return;
     const signals = q.options[optionIdx]?.signals as any ?? {};
-    
+
     // Sum animal scores
     scores.lion += (signals.lion || 0);
     scores.bear += (signals.bear || 0);
-    scores.wolf += (signals.wolf || 0);
-    scores.night_owl += (signals.night_owl || 0);
+    // Merge night owl points into wolf so previous quiz signals don't break
+    scores.wolf += ((signals.wolf || 0) + (signals.night_owl || 0));
     scores.dolphin += (signals.dolphin || 0);
-    
+
     capacityDelta += (signals.capacity || 0);
   });
 
@@ -145,26 +145,67 @@ export default function QuizPage() {
     lion: "🦁",
     bear: "🐻",
     wolf: "🐺",
-    night_owl: "🦉",
     dolphin: "🐬",
   };
   const CHRONOTYPE_LABEL: Record<string, string> = {
     lion: "Lion",
     bear: "Bear",
-    wolf: "Wolf",
-    night_owl: "Night Owl",
+    wolf: "Wolf (Night Owl)",
     dolphin: "Dolphin",
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-background transition-colors duration-300 relative overflow-hidden">
-      <div className="absolute top-0 -left-4 w-[500px] h-[500px] bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-[0.15] animate-blob" />
-      <div className="absolute bottom-0 -right-4 w-[500px] h-[500px] bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-[0.12] animation-delay-2000" />
+    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-[#fffde7] dark:bg-background transition-colors duration-300 relative overflow-hidden">
 
-      <div className="w-full max-w-2xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-8 sm:p-12 z-10 relative">
+      <style>{`
+        /* Overrides Next.js body background. By setting this to the navbar color, the top overscroll matches the navbar! */
+        html, body { background-color: #fff9c4 !important; }
+        html.dark, html.dark body { background-color: #000000 !important; }
+
+        @keyframes float-complex-1 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+          33% { transform: translate(30px, -50px) rotate(10deg) scale(1.1); }
+          66% { transform: translate(-20px, 20px) rotate(-5deg) scale(0.9); }
+        }
+        @keyframes float-complex-2 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1.1); }
+          33% { transform: translate(-40px, 40px) rotate(-10deg) scale(0.95); }
+          66% { transform: translate(20px, -30px) rotate(8deg) scale(1.05); }
+        }
+        @keyframes float-complex-3 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.9); }
+          33% { transform: translate(50px, 20px) rotate(15deg) scale(1); }
+          66% { transform: translate(-30px, -40px) rotate(-12deg) scale(1.1); }
+        }
+        @keyframes float-complex-4 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+          33% { transform: translate(-30px, -60px) rotate(-8deg) scale(1.15); }
+          66% { transform: translate(40px, 30px) rotate(12deg) scale(0.95); }
+        }
+      `}</style>
+
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-50 dark:opacity-100">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
+      </div>
+
+      {/* Bouncing Background Emojis - Hidden in dark mode to keep it "all black" */}
+      <div className="absolute inset-0 pointer-events-none opacity-20 text-[6rem] md:text-[8rem] z-0 overflow-hidden select-none dark:hidden">
+        <div className="absolute top-[5%] left-[5%]" style={{ animation: 'float-complex-1 12s ease-in-out infinite' }}>🦁</div>
+        <div className="absolute top-[18%] right-[8%]" style={{ animation: 'float-complex-2 15s ease-in-out infinite' }}>🐺</div>
+        <div className="absolute bottom-[25%] left-[8%]" style={{ animation: 'float-complex-3 14s ease-in-out infinite' }}>🐻</div>
+        <div className="absolute bottom-[10%] right-[12%]" style={{ animation: 'float-complex-4 16s ease-in-out infinite' }}>🐬</div>
+
+        <div className="absolute top-[40%] left-[2%]" style={{ animation: 'float-complex-2 18s ease-in-out infinite' }}>🐬</div>
+        <div className="absolute top-[60%] right-[3%]" style={{ animation: 'float-complex-1 20s ease-in-out infinite' }}>🦁</div>
+        <div className="absolute top-[6%] right-[35%]" style={{ animation: 'float-complex-3 17s ease-in-out infinite' }}>🐻</div>
+        <div className="absolute bottom-[5%] left-[30%]" style={{ animation: 'float-complex-4 19s ease-in-out infinite' }}>🐺</div>
+      </div>
+
+      <div className="w-full max-w-4xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-6 sm:p-8 z-10 relative">
 
         {/* Header nav */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           {step === 0 ? (
             <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4 mr-2" /> Exit
@@ -183,9 +224,8 @@ export default function QuizPage() {
               {QUESTIONS.map((_, i) => (
                 <div
                   key={i}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i < step ? "bg-primary w-6" : "bg-muted w-3"
-                  }`}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${i < step ? "bg-primary w-6" : "bg-muted w-3"
+                    }`}
                 />
               ))}
             </div>
@@ -194,16 +234,16 @@ export default function QuizPage() {
 
         {/* Intro */}
         {step === 0 && (
-          <div className="space-y-6 animate-fade-in">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
-              <BrainCircuit className="w-8 h-8 text-primary" />
+          <div className="space-y-4 animate-fade-in">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-2">
+              <BrainCircuit className="w-8 h-8 text-primary rotate-90" />
             </div>
             <h1 className="text-3xl font-bold">Cognitive Profile Quiz</h1>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              6 quick questions to discover your <strong>chronotype</strong> and your personal <strong>daily mental capacity</strong>. 
+              6 quick questions to discover your <strong>chronotype</strong> and your personal <strong>daily mental capacity</strong>.
               Brainwidth uses this to build your ideal schedule.
             </p>
-            <div className="grid grid-cols-3 gap-4 pt-4">
+            <div className="grid grid-cols-3 gap-3 pt-2">
               {["🌅 Chronotype", "⚡ Capacity", "📅 Schedule"].map((label) => (
                 <div key={label} className="bg-muted/50 border border-border rounded-2xl p-4 text-center">
                   <p className="text-sm font-semibold">{label}</p>
@@ -221,7 +261,7 @@ export default function QuizPage() {
 
         {/* Questions */}
         {step >= 1 && step <= totalSteps && (
-          <div key={currentQ.id} className="space-y-6 animate-fade-in">
+          <div key={currentQ.id} className="space-y-4 animate-fade-in">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Zap size={14} className="text-primary" />
@@ -234,17 +274,16 @@ export default function QuizPage() {
             </div>
 
             <div>
-              <label className="text-lg font-semibold block mb-4">{currentQ.question}</label>
-              <div className="grid grid-cols-1 gap-3">
+              <label className="text-lg font-semibold block mb-3">{currentQ.question}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {currentQ.options.map((opt, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleAnswer(idx)}
-                    className={`w-full text-left px-5 py-4 rounded-xl border transition-all hover:border-primary hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                      answers[currentQ.id] === idx
-                        ? "border-primary bg-primary/10"
-                        : "border-border"
-                    }`}
+                    className={`w-full text-left px-5 py-4 rounded-xl border transition-all hover:border-primary hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 ${answers[currentQ.id] === idx
+                      ? "border-primary bg-primary/10"
+                      : "border-border"
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -256,50 +295,49 @@ export default function QuizPage() {
 
         {/* Results */}
         {step === totalSteps + 1 && result && (
-          <div className="space-y-6 animate-fade-in flex flex-col items-center text-center py-4">
-            <div className="w-24 h-24 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mb-2 shadow-lg shadow-green-500/20">
-              <CheckCircle2 className="w-12 h-12" />
+          <div className="space-y-4 animate-fade-in flex flex-col items-center text-center py-2">
+            <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mb-1 shadow-lg shadow-green-500/20">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h1 className="text-4xl font-bold">Your Profile</h1>
+            <h1 className="text-3xl font-bold">Your Profile</h1>
 
-            <div className="grid grid-cols-2 gap-4 w-full mt-2 mb-8">
-              <div className="bg-muted/50 border border-border rounded-2xl p-5 text-center">
-                <div className="text-4xl mb-2">{CHRONOTYPE_EMOJI[result.chronotype]}</div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Chronotype</p>
-                <p className="text-xl font-bold">{CHRONOTYPE_LABEL[result.chronotype]}</p>
+            <div className="grid grid-cols-2 gap-3 w-full mt-1 mb-4">
+              <div className="bg-muted/50 border border-border rounded-2xl p-4 text-center">
+                <div className="text-3xl mb-1">{CHRONOTYPE_EMOJI[result.chronotype]}</div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Chronotype</p>
+                <p className="text-lg font-bold">{CHRONOTYPE_LABEL[result.chronotype]}</p>
               </div>
-              <div className="bg-muted/50 border border-border rounded-2xl p-5 text-center">
-                <div className="text-4xl font-mono font-bold text-primary mb-2">{result.base_capacity}τ</div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Daily Capacity</p>
-                <p className="text-sm text-muted-foreground">Mental tax units per day</p>
+              <div className="bg-muted/50 border border-border rounded-2xl p-4 text-center">
+                <div className="text-3xl font-mono font-bold text-primary mb-1">{result.base_capacity}τ</div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Daily Capacity</p>
+                <p className="text-xs text-muted-foreground">Mental tax units per day</p>
               </div>
             </div>
 
             {/* Display all chronotypes for context */}
             <div className="w-full text-left space-y-4 mb-8">
-              <h2 className="text-lg font-bold">The 5 Chronotypes</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <h2 className="text-lg font-bold">The 4 Chronotypes</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { value: "lion", label: "Lion", icon: "🦁", percentage: "15%", schedule: "Wake ~5:30 a.m. | Sleep ~9:30 p.m.", peak: "7 a.m. to 12 p.m.", routine: "Tackle high-priority, analytical, or physical work early, as energy drops in the afternoon." },
                   { value: "bear", label: "Bear", icon: "🐻", percentage: "40%", schedule: "Wake ~7 a.m. | Sleep ~11 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Deep work in the morning, administrative tasks in the afternoon slump, and exercise in the early evening." },
-                  { value: "wolf", label: "Wolf", icon: "🐺", percentage: "30%", schedule: "Wake ~7:30 a.m.+ | Sleep ~12 a.m.+", peak: "4 p.m. to 6 p.m. (or later)", routine: "Creative work in the evening; ease into the morning with lighter tasks." },
-                  { value: "night_owl", label: "Night Owl", icon: "🦉", percentage: "5%", schedule: "Wake ~10 a.m. | Sleep ~2 a.m.", peak: "8 p.m. to 12 a.m.", routine: "Deep focus late at night when the world is quiet." },
+                  { value: "wolf", label: "Wolf (Night Owl)", icon: "🐺", percentage: "35%", schedule: "Wake ~10 a.m.+ | Sleep ~2 a.m.+", peak: "4 p.m. to 6 p.m. or later", routine: "Creative or deep work in the evening; ease into the morning with lighter tasks." },
                   { value: "dolphin", label: "Dolphin", icon: "🐬", percentage: "10%", schedule: "Wake ~6:30 a.m. | Sleep ~11:30 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Requires a flexible schedule. Focus on consistent, moderate-intensity workouts to manage stress." }
                 ].map((ct) => (
-                  <div 
-                    key={ct.value} 
+                  <div
+                    key={ct.value}
                     className={`flex flex-col p-5 rounded-2xl border transition-all ${result.chronotype === ct.value ? "border-primary bg-primary/5 shadow-md shadow-primary/10 ring-1 ring-primary/20 scale-[1.02]" : "border-border bg-card hover:border-primary/30"}`}
                   >
                     <div className="flex items-center gap-3 mb-4">
-                       <span className="text-3xl bg-muted/50 w-12 h-12 rounded-full flex items-center justify-center">{ct.icon}</span>
-                       <div>
-                         <span className="font-bold text-base block">{ct.label}</span>
-                         {result.chronotype === ct.value && (
-                           <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block mt-1">Your Result</span>
-                         )}
-                       </div>
+                      <span className="text-3xl bg-muted/50 w-12 h-12 rounded-full flex items-center justify-center">{ct.icon}</span>
+                      <div>
+                        <span className="font-bold text-base block">{ct.label}</span>
+                        {result.chronotype === ct.value && (
+                          <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block mt-1">Your Result</span>
+                        )}
+                      </div>
                     </div>
-                    
+
                     <div className="space-y-3 flex-1">
                       <div>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-0.5">Schedule</span>

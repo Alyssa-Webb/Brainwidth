@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { api } from "@/lib/auth";
-import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2, RefreshCw, Book, Brain, Trash2 } from "lucide-react";
+import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2, RefreshCw, Book, Brain, Trash2, ArrowLeft } from "lucide-react";
 import LoadMeter from "@/components/LoadMeter";
 
 const CHRONOTYPE_OPTIONS = [
   { value: "lion", label: "Lion", icon: "🦁", description: "Peak focus early morning. Best for tackling hard tasks first." },
   { value: "bear", label: "Bear", icon: "🐻", description: "Energy follows the sun. Peak focus mid-morning to early afternoon." },
-  { value: "wolf", label: "Wolf", icon: "🐺", description: "Peak focus late afternoon and evening. Slow mornings." },
-  { value: "night_owl", label: "Night Owl", icon: "🦉", description: "Peak focus late evening and night." },
+  { value: "wolf", label: "Wolf (Night Owl)", icon: "🐺", description: "Peak focus late afternoon and evening. Slow mornings." },
   { value: "dolphin", label: "Dolphin", icon: "🐬", description: "Light sleepers. Short bursts of high energy." }
 ];
 
@@ -72,7 +72,7 @@ export default function ProfilePage() {
           base_capacity: profileRes.data.base_capacity ?? 8.0,
           goals: profileRes.data.goals ?? []
         });
-        
+
         // Execution of reusable API functions triggered on page-load event
         await Promise.all([
           fetchSyllabi(),
@@ -182,13 +182,25 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans pb-12">
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-20 -left-20 w-[40%] h-[40%] rounded-full bg-primary/15 filter blur-[100px]" />
-        <div className="absolute bottom-0 right-0 w-[30%] h-[40%] rounded-full bg-purple-500/10 filter blur-[100px]" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 py-12 bg-[#fffde7] dark:bg-background transition-colors duration-300 relative overflow-hidden">
+      <style>{`
+        /* Overrides Next.js body background. By setting this to the navbar color, the top overscroll matches the navbar! */
+        html, body { background-color: #fff9c4 !important; }
+        html.dark, html.dark body { background-color: #000000 !important; }
+      `}</style>
 
-      <div className="relative z-10 max-w-3xl mx-auto px-4 py-8">
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-50 dark:opacity-100">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
+      </div>
+      
+      <div className="w-full max-w-4xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-6 sm:p-8 z-10 relative">
+        <div className="mb-6 flex items-center justify-between">
+          <Link href="/dashboard" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+          </Link>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Your Profile</h1>
           <p className="text-muted-foreground mt-1 text-sm">Customize your cognitive profile for personalized scheduling.</p>

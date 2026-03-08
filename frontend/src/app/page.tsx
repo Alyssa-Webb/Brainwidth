@@ -14,73 +14,96 @@ export default function LandingPage() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 pb-20 sm:p-20 font-sans relative overflow-hidden bg-background text-foreground transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center p-4 pt-24 pb-12 bg-[#fffde7] dark:bg-background transition-colors duration-300 relative overflow-x-hidden font-sans">
+      <style>{`
+        /* Overrides Next.js body background. By setting this to the navbar color, the top overscroll matches the navbar! */
+        html, body { background-color: #fff9c4 !important; }
+        html.dark, html.dark body { background-color: #000000 !important; }
+      `}</style>
 
-      {/* Background Gradients */}
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse duration-1000"></div>
-      <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-700 duration-1000"></div>
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
+      {/* Background Accents - Matching Dashboard Style */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-50 dark:opacity-100">
+        <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[140px]" />
+        <div className="absolute bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 mix-blend-multiply filter blur-[140px]" />
+      </div>
 
-      <main className="flex flex-col items-center max-w-4xl w-full gap-12 text-center z-10 mt-12">
+      <main className="flex flex-col items-center max-w-5xl w-full z-10 text-center">
 
         {/* Hero Section */}
-        <section className="space-y-6 flex flex-col items-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium text-sm mb-4 border border-primary/20 backdrop-blur-sm shadow-sm">
-            <SparklesIcon className="w-4 h-4" />
-            <span>Manage your time. Master your Mind.</span>
-          </div>
-
-          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-foreground transition-colors">
-            Welcome to <span className="bg-clip-text bg-gradient-to-r from-primary to-blue-500">Brainwidth</span>
+        <section className="space-y-6 flex flex-col items-center mb-12">
+          <h1 className="text-5xl sm:text-8xl font-black tracking-tight text-foreground leading-[1.1]">
+            Welcome to
+            <span className="text-primary italic"> Brainwidth</span>
           </h1>
 
-          <p className="text-xl sm:text-2xl text-muted-foreground max-w-2xl leading-relaxed mt-4 transition-colors">
-            The first cognitive load scheduler built for students balancing complex semester workloads.
+          <p className="text-xl sm:text text-muted-foreground max-w-3xl leading-relaxed mt-4">
+            The first cognitive load scheduler built for students, by students.
           </p>
         </section>
 
-        {/* Pitch Section */}
-        <section className="bg-card text-card-foreground p-8 sm:p-10 rounded-3xl border border-border shadow-xl shadow-primary/5 max-w-3xl backdrop-blur-md bg-opacity-80 dark:bg-opacity-80 transition-all">
-          <p className="text-lg leading-relaxed text-left">
-            Typical tools like Google Calendar and Outlook only provide linear time blocks without considering the <strong className="text-primary font-bold">"Mental Tax"</strong> of switching between a high-level Calculus assignment and a tedious, multi-client meeting.
-            <br /><br />
-            Hyma and Alyssa developed Brainwidth to directly support students in managing their time and approaching rigorous tasks intelligently.
-          </p>
-        </section>
-
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-4">
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-20">
           <Link
             href="/signup"
-            className="group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/25"
+            className="group flex items-center justify-center gap-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl px-10 py-5 text-xl font-bold transition-all hover:scale-[1.03] active:scale-[0.97] shadow-2xl shadow-primary/30"
           >
-            Get Started
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            Start Your Journey
+            <ArrowRight className="w-6 h-6 group-hover:translate-x-1.5 transition-transform" />
           </Link>
           <Link
             href="/login"
-            className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95"
+            className="flex items-center justify-center gap-2 bg-card text-foreground hover:bg-secondary border border-border rounded-2xl px-10 py-5 text-xl font-bold transition-all hover:scale-[1.03] active:scale-[0.97] shadow-xl shadow-black/5"
           >
             Log In
           </Link>
         </div>
 
-        {/* Feature Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full mt-12">
+        {/* Core Philosophy Card */}
+        <section className="relative w-full max-w-4xl px-4 mb-24">
+          <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-[4rem] -z-10" />
+          <div className="bg-card/80 backdrop-blur-xl text-card-foreground p-8 sm:p-12 rounded-[2.5rem] border border-border shadow-2xl text-left relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <BrainCircuit size={200} className="rotate-90" />
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-bold mb-6 flex items-center gap-3">
+              <div className="w-1.5 h-8 bg-primary rounded-full" />
+              Why Brainwidth?
+            </h2>
+
+            <div className="space-y-6 text-lg leading-relaxed max-w-2xl text-muted-foreground">
+              <p>
+                Typical tools like Google Calendar only show time blocks, ignoring the
+                <strong className="text-foreground"> energy cost</strong> of your work.
+              </p>
+              <p>
+                An hour of deep analysis isn't the same as an hour of emails.
+                Brainwidth calculates the <strong className="text-primary">"Mental Tax"</strong> of every task to protect
+                your focus and prevent burnout before it starts.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-20 px-4">
           <FeatureCard
-            icon={<BrainCircuit className="w-8 h-8 text-primary" />}
-            title="Chronotype Quiz"
-            description="Discover your peak mental hours and optimize your schedule."
+            icon={<Zap className="w-8 h-8" />}
+            title="Chronotype Intelligence"
+            description="Align your hardest work with your biology. We find your peak focus windows."
+            color="bg-orange-500/10 text-orange-500"
           />
           <FeatureCard
-            icon={<CalendarClock className="w-8 h-8 text-blue-500" />}
+            icon={<BrainCircuit className="w-8 h-8 rotate-90" />}
             title="Tax-Aware Scheduling"
-            description="Schedule tasks based on cognitive load, not just available minutes."
+            description="Schedule tasks based on cognitive intensity, not just minutes available."
+            color="bg-primary/10 text-primary"
           />
           <FeatureCard
-            icon={<Zap className="w-8 h-8 text-purple-500" />}
-            title="AI Chatbot Assistant"
-            description="Get real-time scheduling advice from your personal AI."
+            icon={<ArrowRight className="w-8 h-8" />}
+            title="AI Co-Pilot"
+            description="Get real-time scheduling advice from your personal AI optimizer."
+            color="bg-blue-500/10 text-blue-500"
           />
         </div>
 
@@ -101,14 +124,14 @@ function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+function FeatureCard({ icon, title, description, color }: { icon: React.ReactNode, title: string, description: string, color: string }) {
   return (
-    <div className="flex flex-col items-center text-center p-6 bg-card text-card-foreground rounded-2xl border border-border shadow-sm hover:shadow-md transition-all hover:-translate-y-1">
-      <div className="p-3 bg-secondary rounded-xl mb-4 text-secondary-foreground">
+    <div className="flex flex-col items-center text-center p-8 bg-card/60 backdrop-blur-md text-card-foreground rounded-[2rem] border border-border shadow-sm hover:shadow-xl transition-all hover:-translate-y-2 group">
+      <div className={`p-4 rounded-2xl mb-6 transition-transform group-hover:scale-110 ${color}`}>
         {icon}
       </div>
-      <h3 className="text-xl font-semibold mb-2">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
+      <h3 className="text-xl font-bold mb-3">{title}</h3>
+      <p className="text-muted-foreground leading-relaxed">{description}</p>
     </div>
   );
 }

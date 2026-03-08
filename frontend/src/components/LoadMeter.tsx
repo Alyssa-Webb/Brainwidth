@@ -23,7 +23,7 @@ export default function LoadMeter({ currentLoad, maxLoad }: { currentLoad: numbe
       <div className="flex justify-between items-end mb-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <BrainCircuit className={percentage >= 85 ? "text-red-500 dark:text-red-400" : "text-blue-500 dark:text-indigo-400"} />
+            <BrainCircuit className={`rotate-90 ${percentage >= 85 ? "text-red-500 dark:text-red-400" : "text-blue-500 dark:text-indigo-400"}`} />
             Mental Tax
           </h2>
           <p className="text-sm text-gray-600 dark:text-white/60 mt-1">{getStatus()}</p>

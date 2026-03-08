@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { api } from "@/lib/auth";
 import TaskInput from "@/components/TaskInput";
-import { Bot, Send, Calendar, MapPin, Flag, ExternalLink } from "lucide-react";
+import { Bot, Send, Calendar, MapPin, Flag, ExternalLink, ArrowLeft } from "lucide-react";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  high:   "bg-red-500/10 text-red-400 border-red-500/30",
+  high: "bg-red-500/10 text-red-400 border-red-500/30",
   medium: "bg-orange-400/10 text-orange-400 border-orange-400/30",
-  low:    "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+  low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
 };
 
 export default function TasksPage() {
@@ -72,20 +73,32 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300 font-sans">
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[10%] -left-[10%] w-[40%] h-[50%] rounded-full bg-primary/20 mix-blend-multiply filter blur-[120px]" />
-        <div className="absolute bottom-[20%] -right-[10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 mix-blend-multiply filter blur-[120px]" />
+    <div className="min-h-screen flex flex-col items-center p-4 pt-24 pb-12 bg-[#fffde7] dark:bg-background transition-colors duration-300 relative font-sans">
+      <style>{`
+        /* Overrides Next.js body background. By setting this to the navbar color, the top overscroll matches the navbar! */
+        html, body { background-color: #fff9c4 !important; }
+        html.dark, html.dark body { background-color: #000000 !important; }
+      `}</style>
+
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none opacity-50 dark:opacity-100">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-primary/15 mix-blend-multiply filter blur-[120px]" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] rounded-full bg-blue-500/8 mix-blend-multiply filter blur-[120px]" />
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 py-8">
+      <div className="w-full max-w-6xl bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-6 sm:p-8 z-10 relative">
+        <div className="mb-6 flex items-center justify-between">
+          <Link href="/dashboard" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+          </Link>
+        </div>
+
         <h1 className="text-3xl font-bold mb-2">Task Management</h1>
         <p className="text-muted-foreground text-sm mb-8">Add tasks below — they'll appear on your dashboard calendar automatically.</p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* LEFT: AI Chat */}
-          <div className="lg:col-span-4 flex flex-col gap-4 h-full">
+          <div className="lg:col-span-4 flex flex-col gap-4 min-h-[500px]">
             <div className="flex-1 bg-card border border-border rounded-3xl shadow-sm flex flex-col overflow-hidden">
               <div className="bg-secondary/50 p-4 border-b border-border flex items-center gap-3 shrink-0">
                 <div className="p-2 bg-primary/10 rounded-full text-primary">
@@ -96,11 +109,10 @@ export default function TasksPage() {
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === "user"
+                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${msg.role === "user"
                         ? "bg-primary text-primary-foreground rounded-tr-sm"
                         : "bg-muted text-foreground rounded-tl-sm"
-                    }`}>
+                      }`}>
                       {msg.content}
                     </div>
                   </div>
@@ -128,27 +140,25 @@ export default function TasksPage() {
           </div>
 
           {/* RIGHT: Input + Task/GCal Pool */}
-          <div className="lg:col-span-8 flex flex-col gap-4 h-full">
+          <div className="lg:col-span-8 flex flex-col gap-4">
             <div className="shrink-0">
               <TaskInput onAddTask={handleAddTask} />
             </div>
 
             {/* Tab: Flux Tasks vs Google Calendar */}
-            <div className="bg-card border border-border rounded-3xl shadow-sm flex flex-col flex-1 min-h-0">
+            <div className="bg-card border border-border rounded-3xl shadow-sm flex flex-col">
               <div className="flex border-b border-border shrink-0">
                 <button
                   onClick={() => setActiveTab("gcal")}
-                  className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    activeTab === "gcal" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === "gcal" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Calendar size={14} /> Google Calendar ({gcalEvents.length})
                 </button>
                 <button
                   onClick={() => setActiveTab("flux")}
-                  className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    activeTab === "flux" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === "flux" ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Flag size={14} /> Flux Tasks ({tasks.length})
                 </button>

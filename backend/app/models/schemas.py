@@ -21,11 +21,11 @@ class UserCreate(BaseModel):
     name: str
 
 # Chronotype options
-CHRONOTYPE_OPTIONS = ["lion", "bear", "wolf", "night_owl", "dolphin"]
+CHRONOTYPE_OPTIONS = ["lion", "bear", "wolf", "dolphin"]
 
 class UserProfile(BaseModel):
     """Extended user profile for personalized scheduling"""
-    chronotype: Optional[str] = "bear"        # lion | bear | wolf | night_owl | dolphin
+    chronotype: Optional[str] = "bear"        # lion | bear | wolf | dolphin
     work_start_hour: Optional[int] = 8            # e.g. 8 = 8am
     work_end_hour: Optional[int] = 20             # e.g. 20 = 8pm
     base_capacity: Optional[float] = 8.0         # max cognitive load per day

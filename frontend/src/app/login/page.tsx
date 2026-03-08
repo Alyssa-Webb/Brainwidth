@@ -38,7 +38,7 @@ export default function LoginPage() {
       if (response.data && response.data.access_token) {
         setToken(response.data.access_token);
         // For simple demonstration, manually saving the email
-        setUser({ email, name: email.split('@')[0] }); 
+        setUser({ email, name: email.split('@')[0] });
         window.location.href = '/dashboard';
       }
     } catch (err: any) {
@@ -50,16 +50,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background transition-colors duration-300 relative overflow-hidden">
-      {/* Background Gradients */}
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse duration-1000"></div>
-      <div className="absolute -bottom-8 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
 
       <div className="w-full max-w-md bg-card text-card-foreground rounded-3xl border border-border shadow-xl p-8 z-10 glassmorphism relative">
         <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Home
         </Link>
-        
+
         <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
         <p className="text-muted-foreground mb-8">Log in to manage your cognitive load.</p>
 
@@ -98,7 +95,7 @@ export default function LoginPage() {
               required
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={isLoading}
