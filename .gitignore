@@ -1,0 +1,63 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.venv/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+backend/server_log.txt
+backend/upload_result.json
+
+# Node.js / Frontend / Next.js
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.next/
+out/
+build/
+dist/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Gemini AI / agentic tools
+.gemini/
+
+# Database / Prisma
+prisma/.env
+*.sqlite
+*.sqlite3
+db.sqlite3
+
+PLAN.md

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
 
 from app.engine.calculator import calculate_mental_tax
 from app.services.db_service import get_db
@@ -99,3 +99,120 @@ async def upload_syllabus(file: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+class OptimizedTaskItem(BaseModel):
+    source: str
+    title: str
+    mental_tax: float
+    is_fixed: bool
+
+class DailySchedule(BaseModel):
+    total_load: float
+    tasks: List[OptimizedTaskItem]
+
+class OptimizedWeekResponse(BaseModel):
+    max_daily_load: float
+    is_overloaded: bool
+    schedule: Dict[str, DailySchedule]
+
+@router.get("/optimize", response_model=OptimizedWeekResponse)
+async def optimize_week():
+    import datetime
+    from app.services.google_calendar import fetch_events_next_7_days
+    from app.services.optimizer import balance_schedule
+    
+    def parse_date(date_data):
+        if not date_data:
+            return datetime.datetime.utcnow().date()
+        if isinstance(date_data, datetime.datetime):
+            return date_data.date()
+        try:
+            if isinstance(date_data, str):
+                if date_data.endswith('Z'):
+                    date_data = date_data[:-1] + '+00:00'
+                return datetime.datetime.fromisoformat(date_data).date()
+        except Exception:
+            pass
+        return datetime.datetime.utcnow().date()
+        
+    today = datetime.datetime.utcnow().date()
+    
+    # 1. Fetch Google Calendar events (mock)
+    gcal_events = fetch_events_next_7_days()
+    
+    # 2. Calculate current load per day from fixed events
+    fixed_load_per_day = [0.0] * 7
+    for event in gcal_events:
+        tax, _ = calculate_mental_tax(event["duration"], event["type"], None)
+        event_date = parse_date(event["date"])
+        day_diff = (event_date - today).days
+        if 0 <= day_diff < 7:
+            fixed_load_per_day[day_diff] += tax
+
+    # 3. Fetch MongoDB tasks (flexible)
+    db = get_db()
+    flux_tasks = []
+    if db is not None:
+        cursor = db.tasks.find({})
+        flux_tasks = await cursor.to_list(length=100)
+    
+    # Process flexible tasks
+    flexible_tasks = []
+    for t in flux_tasks:
+        tax, _ = calculate_mental_tax(t.get("duration", 1.0), t.get("type", "Admin"), None)
+        flexible_tasks.append({
+            "id": str(t["_id"]),
+            "title": t.get("title", "Untitled"),
+            "duration": t.get("duration", 1.0),
+            "type": t.get("type", "Admin"),
+            "mental_tax": tax
+        })
+        
+    # 4. Run PuLP Optimizer
+    schedule_mapping, max_load = balance_schedule(flexible_tasks, fixed_load_per_day)
+    
+    # 5. Format the result
+    optimized_week: Dict[str, DailySchedule] = {}
+    for i in range(7):
+        day_key = f"Day {i} ({(today + datetime.timedelta(days=i)).isoformat()})"
+        optimized_week[day_key] = DailySchedule(
+            total_load=fixed_load_per_day[i],
+            tasks=[]
+        )
+    
+    # Add fixed GCal events
+    for event in gcal_events:
+        event_date = parse_date(event["date"])
+        day_diff = (event_date - today).days
+        if 0 <= day_diff < 7:
+            day_key = f"Day {day_diff} ({(today + datetime.timedelta(days=day_diff)).isoformat()})"
+            tax, _ = calculate_mental_tax(event["duration"], event["type"], None)
+            optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                source="Google Calendar",
+                title=event["title"],
+                mental_tax=round(tax, 2),
+                is_fixed=True
+            ))
+            
+    # Add flexible Flux tasks
+    for t in flexible_tasks:
+        day_index = schedule_mapping.get(t["id"])
+        if day_index is not None:
+            day_key = f"Day {day_index} ({(today + datetime.timedelta(days=day_index)).isoformat()})"
+            optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                source="Flux",
+                title=t["title"],
+                mental_tax=round(t["mental_tax"], 2),
+                is_fixed=False
+            ))
+            optimized_week[day_key].total_load += t["mental_tax"]
+            
+    # Round totals
+    for k, daily_sch in optimized_week.items():
+        daily_sch.total_load = round(daily_sch.total_load, 2)
+            
+    return OptimizedWeekResponse(
+        max_daily_load=round(max_load, 2) if max_load else 0.0,
+        is_overloaded=(max_load > 8.0) if max_load else False,
+        schedule=optimized_week
+    )
