@@ -14,7 +14,7 @@ In order to run locally, a MONGO_URI and GEMINI_API_KEY are required.
    source venv/bin/activate
    python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
-   View the site as http://localhost:3000, and see tool-tip to the left to the scheduling dashboard after creating an account.
+   View locally via http://localhost:3000, and see tool-tip to the left to the scheduling dashboard after creating an account.
 
 ---
 
