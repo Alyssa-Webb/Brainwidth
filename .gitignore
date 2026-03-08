@@ -61,3 +61,4 @@ prisma/.env
 db.sqlite3
 
 PLAN.md
+credentials.json

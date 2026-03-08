@@ -92,5 +92,4 @@ zstandard==0.25.0
 passlib==1.7.4
 bcrypt==3.2.2
 python-jose==3.3.0
-python-multipart==0.0.9
 email-validator==2.3.0

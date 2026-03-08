@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/auth";
-import { Save, Plus, X, Sun, Moon, Sunrise } from "lucide-react";
+import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2 } from "lucide-react";
 import LoadMeter from "@/components/LoadMeter";
 
 const CHRONOTYPE_OPTIONS = [
@@ -29,6 +29,9 @@ export default function ProfilePage() {
     base_capacity: 8.0,
     goals: [] as string[]
   });
+  const [syllabi, setSyllabi] = useState<any[]>([]);
+  const [gcalStatus, setGcalStatus] = useState<"unknown" | "connected" | "disconnected">("unknown");
+  const [gcalConnecting, setGcalConnecting] = useState(false);
   const [newGoal, setNewGoal] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -37,16 +40,24 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const res = await api.get("/auth/me");
+        const [profileRes, syllabiRes] = await Promise.all([
+          api.get("/auth/me"),
+          api.get("/syllabi").catch(() => ({ data: { syllabi: [] } })),
+        ]);
         setProfile({
-          name: res.data.name ?? "",
-          email: res.data.email ?? "",
-          chronotype: res.data.chronotype ?? "neutral",
-          work_start_hour: res.data.work_start_hour ?? 8,
-          work_end_hour: res.data.work_end_hour ?? 20,
-          base_capacity: res.data.base_capacity ?? 8.0,
-          goals: res.data.goals ?? []
+          name: profileRes.data.name ?? "",
+          email: profileRes.data.email ?? "",
+          chronotype: profileRes.data.chronotype ?? "neutral",
+          work_start_hour: profileRes.data.work_start_hour ?? 8,
+          work_end_hour: profileRes.data.work_end_hour ?? 20,
+          base_capacity: profileRes.data.base_capacity ?? 8.0,
+          goals: profileRes.data.goals ?? []
         });
+        setSyllabi(syllabiRes.data.syllabi ?? []);
+        // Check GCal connection status
+        api.get("/auth/gcal/status")
+          .then(r => setGcalStatus(r.data.connected ? "connected" : "disconnected"))
+          .catch(() => setGcalStatus("disconnected"));
       } catch (e) {
         console.error("Failed to load profile", e);
       } finally {
@@ -55,6 +66,34 @@ export default function ProfilePage() {
     };
     loadProfile();
   }, []);
+
+  const handleConnectGCal = async () => {
+    setGcalConnecting(true);
+    try {
+      const res = await api.get("/auth/gcal/authorize");
+      const authUrl = res.data.auth_url;
+      // Open consent screen in a popup
+      const popup = window.open(authUrl, "gcal_auth", "width=500,height=650,scrollbars=yes");
+      // Poll every 3s to see if token was saved
+      const poll = setInterval(async () => {
+        try {
+          const status = await api.get("/auth/gcal/status");
+          if (status.data.connected) {
+            clearInterval(poll);
+            setGcalStatus("connected");
+            setGcalConnecting(false);
+            popup?.close();
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+      // Stop polling after 2 min
+      setTimeout(() => { clearInterval(poll); setGcalConnecting(false); }, 120000);
+    } catch (e) {
+      console.error("Failed to get GCal auth URL", e);
+      setGcalConnecting(false);
+    }
+  };
+
 
   const handleSave = async () => {
     setSaving(true);
@@ -269,7 +308,108 @@ export default function ProfilePage() {
             </div>
           </section>
 
+          {/* Google Calendar Connection */}
+          <section className="bg-card border border-border rounded-3xl p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarCheck size={16} className="text-primary" />
+                <h2 className="font-bold text-base">Google Calendar</h2>
+              </div>
+              {gcalStatus === "connected" && (
+                <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
+                  <CheckCircle size={12} /> Connected
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">
+              Connect your Google Calendar to pull in real events, assign mental tax, and write new tasks back.
+            </p>
+
+            {gcalStatus === "connected" ? (
+              <div className="flex gap-3">
+                <div className="flex-1 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-400">
+                  ✅ Your calendar is synced. Events appear on the dashboard with cognitive load scores.
+                </div>
+                <button
+                  onClick={handleConnectGCal}
+                  className="px-4 py-2 rounded-xl bg-muted border border-border text-xs font-medium hover:border-primary/40 transition-colors"
+                >
+                  Reconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleConnectGCal}
+                disabled={gcalConnecting}
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 font-semibold py-3 px-4 rounded-2xl text-sm transition-all hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-primary/20"
+              >
+                {gcalConnecting ? (
+                  <><Loader2 size={15} className="animate-spin" /> Waiting for authorization...</>
+                ) : (
+                  <><CalendarCheck size={15} /> Connect Google Calendar</>
+                )}
+              </button>
+            )}
+
+            {gcalConnecting && (
+              <p className="mt-3 text-xs text-muted-foreground text-center">
+                A Google consent window should be open. Authorize Flux, then return here.
+              </p>
+            )}
+          </section>
+
+          {/* Uploaded Syllabi */}
+
+          <section className="bg-card border border-border rounded-3xl p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText size={16} className="text-primary" />
+              <h2 className="font-bold text-base">Uploaded Syllabi</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Syllabi you've uploaded. Tasks are reviewed against your schedule to avoid double-counting.
+            </p>
+
+            {syllabi.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                <FileText className="mx-auto mb-2 opacity-40" size={28} />
+                <p>No syllabi uploaded yet.</p>
+                <p className="mt-1 text-xs">
+                  Go to the <a href="/upload" className="text-primary underline">Upload</a> tab to parse your course syllabus.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {syllabi.map((s) => {
+                  const date = s.uploaded_at
+                    ? new Date(s.uploaded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : "Unknown date";
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 p-3 rounded-2xl bg-muted/40 border border-border hover:border-primary/30 transition-colors">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <FileText size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{s.filename}</p>
+                        <p className="text-xs text-muted-foreground">{date}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="flex items-center gap-1 text-xs text-emerald-500">
+                          <CheckCircle size={11} />
+                          <span>{s.task_count} tasks saved</span>
+                        </div>
+                        {s.skipped_count > 0 && (
+                          <p className="text-xs text-muted-foreground">{s.skipped_count} skipped (duplicates)</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* Save */}
+
           <div className="flex items-center justify-between">
             {saveMessage && (
               <p className={`text-sm font-medium ${saveMessage.includes("success") ? "text-emerald-500" : "text-red-400"}`}>

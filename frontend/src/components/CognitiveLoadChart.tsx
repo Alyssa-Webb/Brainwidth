@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from "recharts";
 
 interface CognitiveLoadChartProps {
@@ -15,19 +15,21 @@ interface CognitiveLoadChartProps {
 export default function CognitiveLoadChart({
   hourlyLoad,
   baseCapacity = 8.0,
-  workStart = 8,
-  workEnd = 20,
+  workStart = 7,
+  workEnd = 21,
   height = 100
 }: CognitiveLoadChartProps) {
   const peakThreshold = baseCapacity / 8;
 
-  // Only show work hours
+  // Show work hours; recovery values (negative) shown as 0 in the chart area
   const data = hourlyLoad
-    .map((val, i) => ({ hour: `${i}:00`, load: val, index: i }))
+    .map((val, i) => ({
+      hour: `${i > 12 ? i - 12 : i}${i >= 12 ? "p" : "a"}`,
+      load: Math.max(0, val),
+      raw: val,
+      index: i
+    }))
     .filter(d => d.index >= workStart && d.index <= workEnd);
-
-  const formatTooltip = (value: number) =>
-    [`${value.toFixed(2)} τ`, "Cognitive Load"];
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -35,28 +37,33 @@ export default function CognitiveLoadChart({
         <defs>
           <linearGradient id="loadGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
-            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+            <stop offset="95%" stopColor="#10b981" stopOpacity={0.08} />
           </linearGradient>
         </defs>
         <XAxis
           dataKey="hour"
-          tick={{ fontSize: 9, fill: "currentColor", opacity: 0.5 }}
+          tick={{ fontSize: 9, fill: "currentColor", opacity: 0.4 }}
           tickLine={false}
           axisLine={false}
           interval={2}
         />
         <YAxis hide domain={[0, peakThreshold * 2]} />
-        <Tooltip formatter={formatTooltip} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
-        <ReferenceLine y={peakThreshold} stroke="#f97316" strokeDasharray="3 3" strokeWidth={1} />
+        <Tooltip
+          contentStyle={{ fontSize: 11, borderRadius: 8 }}
+          formatter={(val: any, _name: any, item: any) => {
+            const raw = item?.payload?.raw ?? val;
+            if (raw < 0) return [`${Math.abs(raw).toFixed(2)}τ recovery`, "Recovery"];
+            return [`${Number(val).toFixed(2)}τ`, "Load"];
+          }}
+        />
         <Area
           type="monotone"
           dataKey="load"
-          stroke="url(#strokeGradient)"
+          stroke="#6366f1"
           fill="url(#loadGradient)"
-          strokeWidth={2}
+          strokeWidth={1.5}
           dot={false}
-          activeDot={{ r: 4, fill: "#ef4444" }}
-          // Dynamically color: red above threshold, green below
+          activeDot={{ r: 3, fill: "#ef4444" }}
           isAnimationActive={true}
         />
       </AreaChart>
