@@ -6,14 +6,80 @@
   --font-sans: "Inter", "Roboto", "Helvetica Neue", sans-serif;
 }
 
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+@layer base {
+  :root {
+    --background: #fdfdfc;
+    --foreground: #101828;
+    
+    --card: #ffffff;
+    --card-foreground: #101828;
+    
+    --popover: #ffffff;
+    --popover-foreground: #101828;
+    
+    --primary: #4f46e5;
+    --primary-foreground: #ffffff;
+    
+    --secondary: #f3f4f6;
+    --secondary-foreground: #1f2937;
+    
+    --muted: #f3f4f6;
+    --muted-foreground: #6b7280;
+    
+    --accent: #f3f4f6;
+    --accent-foreground: #1f2937;
+    
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #4f46e5;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    
+    --card: #141414;
+    --card-foreground: #ededed;
+    
+    --popover: #141414;
+    --popover-foreground: #ededed;
+    
+    --primary: #6366f1;
+    --primary-foreground: #ffffff;
+    
+    --secondary: #262626;
+    --secondary-foreground: #e5e5e5;
+    
+    --muted: #262626;
+    --muted-foreground: #a3a3a3;
+    
+    --accent: #262626;
+    --accent-foreground: #e5e5e5;
+    
+    --destructive: #7f1d1d;
+    --destructive-foreground: #f87171;
+
+    --border: #262626;
+    --input: #262626;
+    --ring: #6366f1;
+  }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 }
 
 /* Custom Scrollbar for sleek look */
@@ -26,10 +92,10 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(163, 163, 163, 0.2);
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(163, 163, 163, 0.4);
 }
