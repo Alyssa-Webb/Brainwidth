@@ -31,6 +31,8 @@ export default function TaskInput({ onAddTask }: TaskInputProps) {
   const [date, setDate]         = useState("");
   const [location, setLocation] = useState("");
   const [priority, setPriority] = useState("medium");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
@@ -50,6 +52,8 @@ export default function TaskInput({ onAddTask }: TaskInputProps) {
         date: date || undefined,
         location: location.trim() || undefined,
         priority,
+        start_time: startTime || undefined,
+        end_time: endTime || undefined,
       });
 
       onAddTask({
@@ -67,6 +71,8 @@ export default function TaskInput({ onAddTask }: TaskInputProps) {
       // Reset
       setTitle("");
       setDate("");
+      setStartTime("");
+      setEndTime("");
       setLocation("");
     } catch (err: any) {
       setError(err?.response?.data?.detail ?? "Failed to save task. Try again.");
@@ -155,6 +161,27 @@ export default function TaskInput({ onAddTask }: TaskInputProps) {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+        {/* Optional Time Window */}
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">Start Time <span className="font-normal opacity-70">(opt)</span></label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full bg-background border border-input rounded-xl px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">End Time <span className="font-normal opacity-70">(opt)</span></label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full bg-background border border-input rounded-xl px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+            />
           </div>
         </div>
 

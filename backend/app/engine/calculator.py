@@ -167,8 +167,7 @@ def get_hourly_load_curve(
         current_hour = max(current_hour, temp_h)
 
     return hourly
-
-def get_next_available_slot(current_time: float, duration: float, chronotype: str, busy_slots: list[tuple[float, float]], work_start: float = 8.0, work_end: float = 20.0, high_tax: bool = False, ignore_peaks: bool = False) -> float:
+def get_next_available_slot(current_time: float, duration: float, chronotype: str, busy_slots: list[tuple[float, float]], work_start: float = 8.0, work_end: float = 20.0, high_tax: bool = False, ignore_peaks: bool = False, bound_start: float = None, bound_end: float = None) -> float:
     """
     Finds the earliest start time >= current_time such that a task of `duration`
     fits without overlapping busy_slots.
@@ -178,23 +177,35 @@ def get_next_available_slot(current_time: float, duration: float, chronotype: st
     """
     peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["neutral"])
     
-    if ignore_peaks:
-        # Full day search
-        windows = [(0.0, 24.0)]
-    elif high_tax:
-        # High tax (Deep Work) -> Primary Peak first, then any available work window
-        windows = [
+    is_constrained = (bound_start is not None or bound_end is not None)
+
+    if ignore_peaks or is_constrained:
+        # Full day search - if constrained, manual bounds take priority over chronotype peaks
+        initial_windows = [(0.0, 24.0)]
+    elif high_tax or not ignore_peaks:
+        # Prioritize Primary Peak first for ALL flexible tasks (High and Low tax).
+        # Fall back to Secondary, then the rest of the day if overloaded.
+        initial_windows = [
             (peak["peak_start"], peak["peak_end"]),
             (peak["secondary_start"], peak["secondary_end"]),
             (8.0, 23.9) # Absolute fallback day range
         ]
     else:
-        # Low tax (Admin) -> Secondary Peak first, then primary, then any available
-        windows = [
-            (peak["secondary_start"], peak["secondary_end"]),
-            (peak["peak_start"], peak["peak_end"]),
-            (8.0, 23.9)
-        ]
+        # Search the standard day range ignoring specific peaks
+        initial_windows = [(8.0, 23.9)]
+
+    # Apply hard bounds if provided
+    windows = []
+    for ws, we in initial_windows:
+        s = ws
+        e = we
+        if bound_start is not None:
+            s = max(s, bound_start)
+        if bound_end is not None:
+            e = min(e, bound_end)
+        
+        if s + duration <= e + 0.001: # Ensure the window is still valid for the duration
+            windows.append((s, e))
     
     def is_overlapping(start, end, slots):
         for s, e in slots:
@@ -216,7 +227,8 @@ def get_next_available_slot(current_time: float, duration: float, chronotype: st
             if collided_slot_end is not None:
                 t = collided_slot_end
             else:
-                t += 0.25
+                t += 0.25 # fallback increment
+        
     return None
 
 def build_decompression_breaks(
@@ -281,15 +293,28 @@ def build_decompression_breaks(
         is_high_tax = (tax >= 0.7)
         
         # Chronotype routing: High tax -> Peak, Low tax -> Secondary
-        sh = get_next_available_slot(day_start, dur, chronotype, busy_slots, high_tax=is_high_tax)
+        # If the task has manual bounds, we start searching from 0.0 to ensure 
+        # morning slots are available if specified. Otherwise, we start from day_start.
+        search_start = 0.0 if (t.get("earliest_start") is not None) else day_start
+        sh = get_next_available_slot(
+            search_start, dur, chronotype, busy_slots, 
+            high_tax=is_high_tax,
+            bound_start=t.get("earliest_start"),
+            bound_end=t.get("latest_end")
+        )
         
         if sh is not None:
             t["start_hour"] = sh
             busy_slots.append((sh, sh + dur))
             scheduled.append(t)
         else:
-            # Absolute fallback: Search whole day ignoring peaks
-            sh_fallback = get_next_available_slot(0.0, dur, chronotype, busy_slots, ignore_peaks=True)
+            # Absolute fallback: Search whole day ignoring peaks but still respecting bounds
+            sh_fallback = get_next_available_slot(
+                0.0, dur, chronotype, busy_slots, 
+                ignore_peaks=True,
+                bound_start=t.get("earliest_start"),
+                bound_end=t.get("latest_end")
+            )
             if sh_fallback is not None:
                 t["start_hour"] = sh_fallback
                 busy_slots.append((sh_fallback, sh_fallback + dur))

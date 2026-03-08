@@ -343,7 +343,8 @@ async def optimize_week(
                 "duration": t.get("duration", 1.0),
                 "type": t.get("type", "Admin"),
                 "mental_tax": tax,
-                "due_date": t["due_date"]
+                "due_date": t["due_date"],
+                "start_hour": t.get("start_hour")
             })
         else:
             flexible_tasks.append({
@@ -351,7 +352,9 @@ async def optimize_week(
                 "title": title,
                 "duration": t.get("duration", 1.0),
                 "type": t.get("type", "Admin"),
-                "mental_tax": tax
+                "mental_tax": tax,
+                "earliest_start": t.get("earliest_start"),
+                "latest_end": t.get("latest_end")
             })
     
     # If decompress=true: sort by tax, call build_decompression_breaks per day after scheduling
@@ -438,14 +441,17 @@ async def optimize_week(
         for ft in fixed_flux_tasks:
             if ft["due_date"].date() == day_date:
                 # Add it to the end of the day roughly
-                start_hour = float(float(work_end) - float(ft.get("duration", 1.0)))
+                start_hour = ft.get("start_hour")
+                if start_hour is None:
+                    start_hour = float(float(work_end) - float(ft.get("duration", 1.0)))
+                
                 optimized_week[day_key].tasks.append(OptimizedTaskItem(
                     id=ft["id"],
                     source="Flux",
                     title=ft["title"],
                     mental_tax=round(abs(ft["mental_tax"]), 2),
                     is_fixed=True,
-                    start_hour=start_hour,  # Pinned to late afternoon to avoid clashing
+                    start_hour=start_hour,
                     duration=ft.get("duration", 1.0),
                     type=ft.get("type", "Admin"),
                     is_break=(ft["mental_tax"] < 0)
@@ -787,6 +793,8 @@ class TaskCreateInput(BaseModel):
     date: Optional[str] = None       # ISO date string e.g. "2026-03-08"
     location: Optional[str] = None
     priority: Optional[str] = "medium"  # low | medium | high
+    start_time: Optional[str] = None    # "HH:MM"
+    end_time: Optional[str] = None      # "HH:MM"
 
 @router.post("/tasks/create")
 async def create_task(
@@ -809,6 +817,32 @@ async def create_task(
     else:
         due_date = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
+    early_bound = None
+    late_bound = None
+    if task.start_time:
+        try:
+            h, m = map(int, task.start_time.split(':'))
+            early_bound = h + m / 60.0
+        except: pass
+    if task.end_time:
+        try:
+            h, m = map(int, task.end_time.split(':'))
+            late_bound = h + m / 60.0
+        except: pass
+
+    # If start_time is provided and duration completes it exactly or very close to end_time, 
+    # we treat it as a FIXED task. Otherwise it's a constrained flexible task.
+    is_fixed_time = False
+    start_hour = None
+    if early_bound is not None:
+        if late_bound is not None and abs((early_bound + task.duration) - late_bound) < 0.01:
+            is_fixed_time = True
+            start_hour = early_bound
+        elif late_bound is None:
+            # If ONLY start_time is provided, it's a fixed start
+            is_fixed_time = True
+            start_hour = early_bound
+
     task_doc = {
         "title": task.title,
         "duration": task.duration,
@@ -819,7 +853,10 @@ async def create_task(
         "priority": task.priority or "medium",
         "mental_tax": round(tax, 2),
         "user_id": user_id,
-        "is_fixed": has_date
+        "is_fixed": has_date or is_fixed_time,
+        "start_hour": start_hour,
+        "earliest_start": early_bound,
+        "latest_end": late_bound
     }
     db = get_db()
     result = await db.tasks.insert_one(task_doc)
