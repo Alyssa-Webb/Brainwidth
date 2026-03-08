@@ -6,9 +6,11 @@ import { Save, Plus, X, Sun, FileText, CheckCircle, CalendarCheck, Loader2, Refr
 import LoadMeter from "@/components/LoadMeter";
 
 const CHRONOTYPE_OPTIONS = [
-  { value: "morning", label: "Morning Person", icon: "🌅", description: "Peak focus before noon. Ideal for deep work early." },
-  { value: "neutral",  label: "Flexible",       icon: "☀️", description: "Energy distributed throughout the day." },
-  { value: "evening",  label: "Night Owl",       icon: "🌙", description: "Peak focus in the afternoon and evening." }
+  { value: "lion", label: "Lion", icon: "🦁", description: "Peak focus early morning. Best for tackling hard tasks first." },
+  { value: "bear", label: "Bear", icon: "🐻", description: "Energy follows the sun. Peak focus mid-morning to early afternoon." },
+  { value: "wolf", label: "Wolf", icon: "🐺", description: "Peak focus late afternoon and evening. Slow mornings." },
+  { value: "night_owl", label: "Night Owl", icon: "🦉", description: "Peak focus late evening and night." },
+  { value: "dolphin", label: "Dolphin", icon: "🐬", description: "Light sleepers. Short bursts of high energy." }
 ];
 
 const SUGGESTED_GOALS = [
@@ -66,7 +68,7 @@ export default function ProfilePage() {
         setLoading(false);
       }
     };
-    
+
     // Check if we just came back from Google OAuth via full-page redirect
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -178,7 +180,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-6">
-          
+
           {/* Basic Info */}
           <section className="bg-card border border-border rounded-3xl p-6">
             <h2 className="font-bold text-base mb-4">Basic Information</h2>
@@ -207,79 +209,13 @@ export default function ProfilePage() {
           <section className="bg-card border border-border rounded-3xl p-6">
             <h2 className="font-bold text-base mb-1">Chronotype</h2>
             <p className="text-xs text-muted-foreground mb-4">Your natural energy rhythm helps us schedule deep work at the right time.</p>
-            <div className="grid grid-cols-3 gap-3">
-              {CHRONOTYPE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setProfile(p => ({ ...p, chronotype: opt.value }))}
-                  className={`p-4 rounded-2xl border text-left transition-all hover:scale-[1.02] ${
-                    profile.chronotype === opt.value
-                      ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
-                      : "border-border bg-muted/30 hover:border-primary/30"
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{opt.icon}</div>
-                  <p className="text-sm font-bold">{opt.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-tight">{opt.description}</p>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Base Capacity */}
-          <section className="bg-card border border-border rounded-3xl p-6">
-            <h2 className="font-bold text-base mb-1">Daily Cognitive Capacity</h2>
-            <p className="text-xs text-muted-foreground mb-6">
-              The maximum total mental tax (τ) you can sustain per day. This sets your personal overload threshold.
-            </p>
-            
-            <div className="mb-4">
-              <LoadMeter currentLoad={0} maxLoad={profile.base_capacity} />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground w-8">4 τ</span>
-              <input
-                type="range"
-                min={4}
-                max={16}
-                step={0.5}
-                value={profile.base_capacity}
-                onChange={e => setProfile(p => ({ ...p, base_capacity: parseFloat(e.target.value) }))}
-                className="flex-1 accent-primary cursor-pointer"
-              />
-              <span className="text-xs text-muted-foreground w-8">16 τ</span>
-              <span className="w-16 text-right font-bold text-primary text-sm">{profile.base_capacity} τ</span>
-            </div>
-          </section>
-
-          {/* Work Hours */}
-          <section className="bg-card border border-border rounded-3xl p-6">
-            <h2 className="font-bold text-base mb-4">Work Hours</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium block mb-1.5">Start Hour</label>
-                <select
-                  value={profile.work_start_hour}
-                  onChange={e => setProfile(p => ({ ...p, work_start_hour: parseInt(e.target.value) }))}
-                  className="w-full h-11 rounded-xl border border-input bg-card text-foreground px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {Array.from({ length: 13 }, (_, i) => i + 5).map(h => (
-                    <option key={h} value={h}>{h}:00 {h < 12 ? "AM" : "PM"}</option>
-                  ))}
-                </select>
+            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5 flex items-center gap-4">
+              <div className="text-4xl">
+                {CHRONOTYPE_OPTIONS.find(o => o.value === profile.chronotype)?.icon || "☀️"}
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1.5">End Hour</label>
-                <select
-                  value={profile.work_end_hour}
-                  onChange={e => setProfile(p => ({ ...p, work_end_hour: parseInt(e.target.value) }))}
-                  className="w-full h-11 rounded-xl border border-input bg-card text-foreground px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {Array.from({ length: 13 }, (_, i) => i + 12).map(h => (
-                    <option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h < 12 ? "AM" : "PM"}</option>
-                  ))}
-                </select>
+                <p className="font-bold text-lg">{CHRONOTYPE_OPTIONS.find(o => o.value === profile.chronotype)?.label || "Flexible"}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{CHRONOTYPE_OPTIONS.find(o => o.value === profile.chronotype)?.description}</p>
               </div>
             </div>
           </section>
@@ -288,7 +224,7 @@ export default function ProfilePage() {
           <section className="bg-card border border-border rounded-3xl p-6">
             <h2 className="font-bold text-base mb-1">Personal Goals</h2>
             <p className="text-xs text-muted-foreground mb-4">Goals guide our AI recommendations. Add anything from academic targets to wellness habits.</p>
-            
+
             {/* Existing goals */}
             <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
               {profile.goals.map(g => (
@@ -309,8 +245,8 @@ export default function ProfilePage() {
                 placeholder="Type a goal and press Enter..."
                 className="flex-1 h-10 rounded-xl border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <button 
-                onClick={addGoal} 
+              <button
+                onClick={addGoal}
                 className="px-4 h-10 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1.5"
               >
                 <Plus size={14} /> Add
@@ -418,7 +354,7 @@ export default function ProfilePage() {
                         <p className="text-sm font-semibold truncate">{s.course_name || s.filename}</p>
                         <p className="text-xs text-muted-foreground">{s.filename !== s.course_name ? s.filename : ""} • {date}</p>
                         {s.reasoning && (
-                           <p className="text-[10px] text-muted-foreground/80 mt-1 truncate" title={s.reasoning}>{s.reasoning}</p>
+                          <p className="text-[10px] text-muted-foreground/80 mt-1 truncate" title={s.reasoning}>{s.reasoning}</p>
                         )}
                       </div>
                       <div className="text-right shrink-0 flex flex-col items-end gap-2">
@@ -435,7 +371,7 @@ export default function ProfilePage() {
                             <RefreshCw size={10} className={syncingId === s.id ? "animate-spin" : ""} />
                             {syncingId === s.id ? "Syncing..." : "Sync AI"}
                           </button>
-                          
+
                           <button
                             onClick={() => handleDeleteSyllabus(s.id)}
                             disabled={deletingId === s.id || syncingId === s.id}

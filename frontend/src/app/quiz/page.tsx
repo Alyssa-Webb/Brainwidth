@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BrainCircuit, CheckCircle2, Zap } from "lucide-react";
-import { api, getToken } from "@/lib/auth";
+import { api, getToken, setUser } from "@/lib/auth";
 
 /* ─── Quiz Questions ─────────────────────────────────────────────────────── */
 
@@ -129,7 +129,11 @@ export default function QuizPage() {
     if (!getToken()) return; // Not logged in yet – skip save, will be set at signup
     setSaving(true);
     try {
-      await api.patch("/auth/profile", profile);
+      const res = await api.patch("/auth/profile", profile);
+      // Immediately reflect backend change in local UI state
+      if (res.data) {
+        setUser(res.data);
+      }
     } catch {
       // fail silently – user can update manually via Profile page
     } finally {
@@ -258,7 +262,7 @@ export default function QuizPage() {
             </div>
             <h1 className="text-4xl font-bold">Your Profile</h1>
 
-            <div className="grid grid-cols-2 gap-4 w-full mt-2">
+            <div className="grid grid-cols-2 gap-4 w-full mt-2 mb-8">
               <div className="bg-muted/50 border border-border rounded-2xl p-5 text-center">
                 <div className="text-4xl mb-2">{CHRONOTYPE_EMOJI[result.chronotype]}</div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Chronotype</p>
@@ -271,7 +275,56 @@ export default function QuizPage() {
               </div>
             </div>
 
-            <p className="text-muted-foreground text-base leading-relaxed max-w-md">
+            {/* Display all chronotypes for context */}
+            <div className="w-full text-left space-y-4 mb-8">
+              <h2 className="text-lg font-bold">The 5 Chronotypes</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[
+                  { value: "lion", label: "Lion", icon: "🦁", percentage: "15%", schedule: "Wake ~5:30 a.m. | Sleep ~9:30 p.m.", peak: "7 a.m. to 12 p.m.", routine: "Tackle high-priority, analytical, or physical work early, as energy drops in the afternoon." },
+                  { value: "bear", label: "Bear", icon: "🐻", percentage: "40%", schedule: "Wake ~7 a.m. | Sleep ~11 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Deep work in the morning, administrative tasks in the afternoon slump, and exercise in the early evening." },
+                  { value: "wolf", label: "Wolf", icon: "🐺", percentage: "30%", schedule: "Wake ~7:30 a.m.+ | Sleep ~12 a.m.+", peak: "4 p.m. to 6 p.m. (or later)", routine: "Creative work in the evening; ease into the morning with lighter tasks." },
+                  { value: "night_owl", label: "Night Owl", icon: "🦉", percentage: "5%", schedule: "Wake ~10 a.m. | Sleep ~2 a.m.", peak: "8 p.m. to 12 a.m.", routine: "Deep focus late at night when the world is quiet." },
+                  { value: "dolphin", label: "Dolphin", icon: "🐬", percentage: "10%", schedule: "Wake ~6:30 a.m. | Sleep ~11:30 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Requires a flexible schedule. Focus on consistent, moderate-intensity workouts to manage stress." }
+                ].map((ct) => (
+                  <div 
+                    key={ct.value} 
+                    className={`flex flex-col p-5 rounded-2xl border transition-all ${result.chronotype === ct.value ? "border-primary bg-primary/5 shadow-md shadow-primary/10 ring-1 ring-primary/20 scale-[1.02]" : "border-border bg-card hover:border-primary/30"}`}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                       <span className="text-3xl bg-muted/50 w-12 h-12 rounded-full flex items-center justify-center">{ct.icon}</span>
+                       <div>
+                         <span className="font-bold text-base block">{ct.label}</span>
+                         {result.chronotype === ct.value && (
+                           <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block mt-1">Your Result</span>
+                         )}
+                       </div>
+                    </div>
+                    
+                    <div className="space-y-3 flex-1">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-0.5">Schedule</span>
+                        <span className="text-xs font-medium">{ct.schedule}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-0.5">Peak Focus</span>
+                        <span className="text-xs font-semibold text-primary">{ct.peak}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-0.5">Best Routine</span>
+                        <span className="text-xs text-muted-foreground leading-relaxed">{ct.routine}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-3 border-t border-border flex justify-between items-center text-xs text-muted-foreground font-medium">
+                      <span>Population</span>
+                      <span className="bg-muted px-2 py-1 rounded-md">{ct.percentage}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-muted-foreground text-sm leading-relaxed mb-6">
               {saving
                 ? "Saving your profile..."
                 : "We've saved your cognitive profile. Now let's look at your semester workload."}

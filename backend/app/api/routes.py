@@ -271,6 +271,19 @@ async def optimize_week(
         cursor = db.tasks.find({"user_id": str(current_user["_id"])})
         flux_tasks = await cursor.to_list(length=100)
         
+        # Inject demo schedule if this is the user's first time with an empty schedule
+        if not current_user.get("has_seen_demo") and len(flux_tasks) == 0 and len(gcal_events) == 0:
+            demo_tasks = [
+                {"user_id": str(current_user["_id"]), "title": "Review Q3 Strategy Docs", "duration": 2.0, "type": "Deep Work", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Clear Inbox & Slack", "duration": 0.5, "type": "Admin", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Design System Brainstorm", "duration": 1.5, "type": "Creative", "is_fixed": False},
+                {"user_id": str(current_user["_id"]), "title": "Update Project Tracker", "duration": 1.0, "type": "Admin", "is_fixed": False},
+            ]
+            await db.tasks.insert_many(demo_tasks)
+            await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"has_seen_demo": True}})
+            cursor = db.tasks.find({"user_id": str(current_user["_id"])})
+            flux_tasks = await cursor.to_list(length=100)
+        
         s_cursor = db.syllabi.find({"user_id": str(current_user["_id"])})
         active_syllabi = await s_cursor.to_list(length=50)
         for s in active_syllabi:
@@ -280,16 +293,31 @@ async def optimize_week(
         fixed_load_per_day[i] += syllabi_load_per_day
     
     flexible_tasks = []
+    fixed_flux_tasks = []
     for t in flux_tasks:
+        if t.get("is_gcal_synced"):
+            continue # GCal fetch handles it
+            
         title = t.get("title", "")
         tax, _ = calculate_mental_tax(t.get("duration", 1.0), t.get("type", "Admin"), title=title)
-        flexible_tasks.append({
-            "id": str(t["_id"]),
-            "title": title,
-            "duration": t.get("duration", 1.0),
-            "type": t.get("type", "Admin"),
-            "mental_tax": tax
-        })
+        
+        if t.get("is_fixed") and t.get("due_date"):
+            fixed_flux_tasks.append({
+                "id": str(t["_id"]),
+                "title": title,
+                "duration": t.get("duration", 1.0),
+                "type": t.get("type", "Admin"),
+                "mental_tax": tax,
+                "due_date": t["due_date"]
+            })
+        else:
+            flexible_tasks.append({
+                "id": str(t["_id"]),
+                "title": title,
+                "duration": t.get("duration", 1.0),
+                "type": t.get("type", "Admin"),
+                "mental_tax": tax
+            })
     
     # If decompress=true: sort by tax, call build_decompression_breaks per day after scheduling
     if decompress:
@@ -348,22 +376,47 @@ async def optimize_week(
             penalty = s.get("daily_load_penalty", 0.0)
             if penalty > 0:
                 optimized_week[day_key].tasks.insert(0, OptimizedTaskItem(
-                    id=f"stem_penalty_{day_key}", # Added id field
+                    id=f"stem_penalty_{day_key}",
                     source="Syllabus",
-                    title="Cognitive Debt (Syllabus)", # Changed title
+                    title="Cognitive Debt (Syllabus)",
                     mental_tax=round(penalty, 2),
                     is_fixed=True,
-                    start_hour=float(work_start), # Pin to start of day
+                    start_hour=float(work_start),
                     duration=penalty,
                     type="STEM",
                     is_break=False
                 ))
                 daily_task_buckets[day_key].insert(0, {
-                    "duration": penalty, # roughly map 1 tax = 1 hour visually
+                    "duration": penalty,
                     "mental_tax": penalty,
                     "type": "STEM",
-                    "start_hour": work_start
+                    "start_hour": float(work_start)
                 })
+        
+        # Add fixed Flux tasks for this day
+        day_date = today + datetime.timedelta(days=i)
+        for ft in fixed_flux_tasks:
+            if ft["due_date"].date() == day_date:
+                # Add it to the end of the day roughly
+                start_hour = float(work_end - ft.get("duration", 1.0))
+                optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                    id=ft["id"],
+                    source="Flux",
+                    title=ft["title"],
+                    mental_tax=round(abs(ft["mental_tax"]), 2),
+                    is_fixed=True,
+                    start_hour=start_hour,  # Pinned to late afternoon to avoid clashing
+                    duration=ft.get("duration", 1.0),
+                    type=ft.get("type", "Admin"),
+                    is_break=(ft["mental_tax"] < 0)
+                ))
+                daily_task_buckets[day_key].append({
+                    "duration": ft.get("duration", 1.0),
+                    "mental_tax": ft["mental_tax"],
+                    "type": ft.get("type", "Admin"),
+                    "start_hour": start_hour
+                })
+                optimized_week[day_key].total_load += ft["mental_tax"]
             
     # Add flexible Flux tasks
     for t in flexible_tasks:
@@ -386,44 +439,91 @@ async def optimize_week(
                 "type": t["type"]
             })
 
-    # Build decompression breaks PER DAY when mode is active
-    if decompress:
-        for day_key in optimized_week:
-            tasks_in_day = optimized_week[day_key].tasks
-            if not tasks_in_day:
-                continue
-            # Convert OptimizedTaskItem to dicts, sorted by start_hour
-            task_dicts = sorted(
-                [{"id": t.id, "title": t.title, "duration": t.duration, "type": t.type or "Deep Work",
-                  "mental_tax": t.mental_tax if not t.is_break else -t.mental_tax, 
-                  "start_hour": t.start_hour,
-                  "is_fixed": t.is_fixed, "source": t.source, "is_break": t.is_break}
-                 for t in tasks_in_day],
-                key=lambda x: (x.get("start_hour") or 9)
-            )
-            enriched = build_decompression_breaks(task_dicts, work_start, work_end)
-            new_task_items = []
-            daily_task_buckets[day_key] = []  # Clear to avoid double-counting
+    # Assign start_hour to flexible tasks and insert breaks if decompress mode is active
+    for day_key in optimized_week:
+        tasks_in_day = optimized_week[day_key].tasks
+        if not tasks_in_day:
+            continue
+        # Convert OptimizedTaskItem to dicts, correctly sorting fixed tasks first then flexible
+        task_dicts = sorted(
+            [{"id": t.id, "title": t.title, "duration": t.duration, "type": t.type or "Deep Work",
+                "mental_tax": t.mental_tax if not t.is_break else -t.mental_tax, 
+                "start_hour": t.start_hour,
+                "is_fixed": t.is_fixed, "source": t.source, "is_break": t.is_break}
+                for t in tasks_in_day],
+            key=lambda x: (x.get("is_fixed", False), x.get("start_hour") or 0), reverse=True
+        )
+
+        if decompress:
+            enriched = build_decompression_breaks(task_dicts, chronotype, work_start, work_end)
+        else:
+            enriched = []
             
-            for td in enriched:
-                new_task_items.append(OptimizedTaskItem(
-                    id=td.get("id"),
-                    source=td.get("source", "Flux"),
-                    title=td["title"],
-                    mental_tax=round(abs(td["mental_tax"]), 2),
-                    is_fixed=td.get("is_fixed", False),
-                    start_hour=td.get("start_hour"),
-                    duration=td.get("duration", 1.0),
-                    type=td.get("type", "Break"),
-                    is_break=td.get("is_break", td.get("mental_tax", 0) < 0)
-                ))
-                daily_task_buckets[day_key].append({
-                    "duration": td.get("duration", 0.25),
-                    "mental_tax": td["mental_tax"],
-                    "type": td.get("type", "Break"),
-                    "start_hour": td.get("start_hour")
-                })
-            optimized_week[day_key].tasks = new_task_items
+            from app.engine.calculator import CHRONOTYPE_PEAKS, get_next_available_slot
+            peak_info = CHRONOTYPE_PEAKS.get(chronotype, {})
+            peak_start = peak_info.get("peak_start", work_start)
+            
+            prev_end_hour = float(max(work_start, peak_start))
+            
+            for task in task_dicts:
+                sh = task.get("start_hour")
+                if sh is None:
+                    sh = get_next_available_slot(prev_end_hour, float(task.get("duration", 1.0)), chronotype)
+                else:
+                    sh = float(sh)
+                
+                # If sh jumped forward, we leaped over a rest period/gap. Fill it!
+                if sh > prev_end_hour:
+                    gap_dur = sh - prev_end_hour
+                    if gap_dur >= 0.5:
+                        # Check for overlaps with already scheduled tasks (like fixed GCal events)
+                        overlap = False
+                        for e_task in enriched:
+                            e_start = e_task.get("start_hour", 0)
+                            e_end = e_start + e_task.get("duration", 0)
+                            if max(prev_end_hour, e_start) < min(sh, e_end):
+                                overlap = True
+                                break
+                        
+                        if not overlap:
+                            enriched.append({
+                                "title": "🌙 Scheduled Rest",
+                                "duration": gap_dur,
+                                "type": "Break",
+                                "start_hour": prev_end_hour,
+                                "mental_tax": round(-0.4 * gap_dur, 2),
+                                "source": "AI Optimizer",
+                                "is_fixed": False,
+                                "is_break": True
+                            })
+                
+                task["start_hour"] = sh
+                duration = float(task.get("duration") or 1.0)
+                enriched.append(task)
+                prev_end_hour = max(prev_end_hour, sh + duration)
+
+        new_task_items = []
+        daily_task_buckets[day_key] = []  # Clear to avoid double-counting
+        
+        for td in enriched:
+            new_task_items.append(OptimizedTaskItem(
+                id=td.get("id"),
+                source=td.get("source", "Flux"),
+                title=td["title"],
+                mental_tax=round(abs(td["mental_tax"]), 2),
+                is_fixed=td.get("is_fixed", False),
+                start_hour=td.get("start_hour"),
+                duration=td.get("duration", 1.0),
+                type=td.get("type", "Break"),
+                is_break=td.get("is_break", td.get("mental_tax", 0) < 0)
+            ))
+            daily_task_buckets[day_key].append({
+                "duration": td.get("duration", 0.25),
+                "mental_tax": td["mental_tax"],
+                "type": td.get("type", "Break"),
+                "start_hour": td.get("start_hour")
+            })
+        optimized_week[day_key].tasks = new_task_items
 
     # Generate hourly load curves per day; floor total_load at 0.0
     for day_key, daily_sch in optimized_week.items():
@@ -641,8 +741,8 @@ async def create_task(
     user_id = str(current_user["_id"])
     tax, _ = calculate_mental_tax(task.duration, task.type)
 
-    # Resolve due_date
-    if task.date:
+    has_date = bool(task.date)
+    if has_date:
         try:
             due_date = datetime.datetime.fromisoformat(task.date.replace("Z", "+00:00"))
         except Exception:
@@ -660,19 +760,26 @@ async def create_task(
         "priority": task.priority or "medium",
         "mental_tax": round(tax, 2),
         "user_id": user_id,
+        "is_fixed": has_date
     }
     db = get_db()
     result = await db.tasks.insert_one(task_doc)
 
-    # Also create a corresponding mock GCal event
-    gcal_event = create_event(
-        title=task.title,
-        date=due_date.isoformat(),
-        duration=task.duration,
-        event_type=task.type,
-        location=task.location or "",
-        priority=task.priority or "medium"
-    )
+    is_gcal_synced = False
+    gcal_event = None
+    if has_date:
+        from app.services.google_calendar import create_event
+        gcal_event = create_event(
+            title=task.title,
+            date=due_date.isoformat(),
+            duration=task.duration,
+            event_type=task.type,
+            location=task.location or "",
+            priority=task.priority or "medium"
+        )
+        if gcal_event and not gcal_event.get("id", "").startswith("task_"):
+            is_gcal_synced = True
+            await db.tasks.update_one({"_id": result.inserted_id}, {"$set": {"is_gcal_synced": True}})
 
     return {
         "id": str(result.inserted_id),
@@ -680,9 +787,10 @@ async def create_task(
         "duration": task.duration,
         "type": task.type,
         "mental_tax": round(tax, 2),
-        "date": due_date.isoformat(),
+        "date": due_date.isoformat() if has_date else None,
         "location": task.location or "",
         "priority": task.priority or "medium",
+        "is_fixed": has_date,
         "gcal_event": gcal_event
     }
 

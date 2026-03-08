@@ -36,10 +36,10 @@ CONTEXT_SWITCH_PENALTY = 0.15
 
 # Chronotype peak performance windows (hour of day)
 CHRONOTYPE_PEAKS = {
-    "lion": {"peak_start": 8, "peak_end": 12, "secondary_start": 15, "secondary_end": 17},
+    "lion": {"peak_start": 7, "peak_end": 12, "secondary_start": 13, "secondary_end": 15},
     "bear": {"peak_start": 10, "peak_end": 14, "secondary_start": 16, "secondary_end": 18},
-    "wolf": {"peak_start": 17, "peak_end": 21, "secondary_start": 11, "secondary_end": 13},
-    "night_owl": {"peak_start": 20, "peak_end": 24, "secondary_start": 14, "secondary_end": 16},
+    "wolf": {"peak_start": 16, "peak_end": 18, "secondary_start": 18, "secondary_end": 22},
+    "night_owl": {"peak_start": 20, "peak_end": 24, "secondary_start": 16, "secondary_end": 18},
     "dolphin": {"peak_start": 10, "peak_end": 14, "secondary_start": 17, "secondary_end": 19},
 }
 
@@ -155,8 +155,33 @@ def get_hourly_load_curve(
     return hourly
 
 
+def get_next_available_slot(current_time: float, duration: float, chronotype: str, work_end: int = 24) -> float:
+    """
+    Finds the earliest start time >= current_time such that a task of `duration`
+    fits entirely within either the Peak window or Secondary window.
+    If it cannot fit (e.g. task is 3 hours but windows are 2 hours), it will just return current_time.
+    """
+    peak = CHRONOTYPE_PEAKS.get(chronotype, {})
+    if not peak:
+        return current_time
+        
+    p_start, p_end = peak.get("peak_start", 8), peak.get("peak_end", 12)
+    s_start, s_end = peak.get("secondary_start", 13), peak.get("secondary_end", 17)
+    
+    # Try fitting in Peak
+    if current_time <= p_end - duration:
+        return max(current_time, float(p_start))
+        
+    # Try fitting in Secondary
+    if current_time <= s_end - duration:
+        return max(current_time, float(s_start))
+        
+    # If we overflowed both for today, just cap it to the end or wrap it, for now just return current_time
+    return current_time
+
 def build_decompression_breaks(
     tasks: list,
+    chronotype: str = "bear",
     work_start: int = 8,
     work_end: int = 20
 ) -> list:
@@ -167,7 +192,12 @@ def build_decompression_breaks(
     Returns the new enriched list with breaks interleaved.
     """
     result = []
-    prev_end_hour = float(work_start)
+    
+    # Push tasks to start exactly at the recommended peak bounds 
+    peak_info = CHRONOTYPE_PEAKS.get(chronotype, {})
+    peak_start = peak_info.get("peak_start", work_start)
+    
+    prev_end_hour = float(max(work_start, peak_start))
 
     # First, stabilize the schedule: ensure no overlaps in the input tasks
     # and assign start times to flexible tasks.
@@ -179,12 +209,39 @@ def build_decompression_breaks(
     for i, task in enumerate(tasks):
         sh = task.get("start_hour")
         if sh is None:
-            sh = prev_end_hour
+            sh = get_next_available_slot(prev_end_hour, duration, chronotype)
         else:
             sh = float(sh)
             
         duration = float(task.get("duration") or 1.0)
         tax = float(task.get("mental_tax") or 0.0)
+
+        # 0. Check for massive time jumps (Off-Peak Rest Period) First!
+        if sh > prev_end_hour:
+            gap_dur = sh - prev_end_hour
+            if gap_dur >= 1.0: # If it's a large gap (like 2+ hours skipped), it's a rest hour
+                # Check for overlaps with already scheduled tasks (like fixed GCal events)
+                overlap = False
+                for r_task in result:
+                    r_start = r_task.get("start_hour", 0)
+                    r_end = r_start + r_task.get("duration", 0)
+                    if max(prev_end_hour, r_start) < min(sh, r_end):
+                        overlap = True
+                        break
+                
+                if not overlap:
+                    result.append({
+                        "title": "🌙 Scheduled Rest",
+                        "duration": gap_dur,
+                        "type": "Break",
+                        "start_hour": prev_end_hour,
+                        "mental_tax": round(-0.4 * gap_dur, 2),
+                        "source": "AI Optimizer",
+                        "is_fixed": False,
+                        "is_break": True,
+                    })
+                # Set prev to sh so the next break logic doesn't insert a second 🌿 Recovery Break inside the rest block
+                prev_end_hour = sh
 
         # 1. "Before" Break logic
         if result and tax > 0.5 and sh > prev_end_hour:

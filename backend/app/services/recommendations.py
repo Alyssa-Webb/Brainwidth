@@ -3,7 +3,74 @@ Recommendations service: generates personalized scheduling tips based on
 the user's profile (chronotype, base_capacity, goals) and their current schedule.
 """
 
+import os
+from typing import List
+from pydantic import BaseModel, Field
+from langchain_google_genai import ChatGoogleGenerativeAI
 from app.engine.calculator import CHRONOTYPE_PEAKS
+
+class AIInsight(BaseModel):
+    title: str = Field(description="A short, catchy title for the insight.")
+    message: str = Field(description="The insight text. Must explicitly relate their schedule to their goals or chronotype. Actionable advice only.")
+
+class AIInsightList(BaseModel):
+    insights: List[AIInsight]
+
+def generate_ai_schedule_insights(user: dict, schedule: dict) -> list:
+    """Uses Gemini to generate 1-2 dynamic, personalized schedule insights based on goals and chronotype."""
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return []
+        
+    goals = user.get("goals", [])
+    if not goals:
+        return []
+        
+    chronotype = user.get("chronotype", "bear")
+    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
+    
+    # Format a string summary of the schedule for the LLM
+    sched_summary = []
+    for day, data in schedule.items():
+        if data["tasks"]:
+            task_list = ", ".join([f"{t.get('title', 'Task')} ({t.get('type', 'Work')})" for t in data["tasks"]])
+            sched_summary.append(f"{day}: {task_list}")
+    
+    
+    sched_text = "\n".join(sched_summary) if sched_summary else "No tasks scheduled yet."
+    
+    prompt = f"""
+    You are an expert cognitive scheduling AI. The user has explicitly set the following goals:
+    {', '.join(goals)}
+    
+    Their chronotype is '{chronotype}'. Their peak productivity window is {peak['peak_start']}:00 - {peak['peak_end']}:00.
+    
+    Here is a summary of their upcoming scheduled tasks:
+    {sched_text}
+    
+    Analyze this schedule. If they have no tasks scheduled yet, suggest exactly how they should begin scheduling tasks to reach their goals based on their '{chronotype}' peak hours.
+    If they do have tasks, check if there are tasks scheduled outside their peak hours that should be moved, and explicitly check if their schedule actively aligns with their stated goals. 
+    Generate 1 or 2 highly specific, actionable insights explaining how to optimize their setup.
+    If everything looks great, tell them why.
+    """
+    
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key, temperature=0.2)
+    structured_llm = llm.with_structured_output(AIInsightList)
+    
+    try:
+        result = structured_llm.invoke(prompt)
+        ai_recs = []
+        for insight in result.insights[:2]:  # Limit to 2
+            ai_recs.append({
+                "type": "ai_insight",
+                "title": f"✨ {insight.title}",
+                "message": insight.message,
+                "severity": "medium"
+            })
+        return ai_recs
+    except Exception as e:
+        print(f"[Recommendations] Gemini Insight Error: {e}")
+        return []
 
 
 def generate_recommendations(user: dict, schedule: dict, max_daily_load: float) -> list:
@@ -49,18 +116,17 @@ def generate_recommendations(user: dict, schedule: dict, max_daily_load: float) 
     # --- Chronotype-Specific Tips ---
     peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
     peak_label = f"{peak['peak_start']}:00–{peak['peak_end']}:00"
-    
     chronotype_messages = {
-        "lion": f"🦁 Lion detected! You're an early riser. Schedule your most demanding deep work between {peak['peak_start']}:00–{peak['peak_end']}:00 when your focus is razor-sharp.",
-        "bear": f"🐻 Bear detected! Your energy follows the sun. Aim for peak focus between {peak['peak_start']}:00–{peak['peak_end']}:00. Use your late afternoon secondary window for lighter tasks.",
-        "wolf": f"🐺 Wolf detected! Your focus intensifies as the day goes on. Save your heaviest cognitive lifting for {peak['peak_start']}:00–{peak['peak_end']}:00.",
-        "night_owl": f"🦉 Night Owl detected! You thrive when the world is quiet. Your prime focus window is late: {peak['peak_start']}:00–{peak['peak_end']}:00.",
-        "dolphin": f"🐬 Dolphin detected! You have a sensitive rhythm. Focus on your most critical tasks during your mid-day peak: {peak['peak_start']}:00–{peak['peak_end']}:00.",
+        "lion": "🦁 Lion (15% of people): Early riser/morning person. Schedule: Wake ~5:30 a.m., Sleep ~9:30 p.m. AI Insight: It is recommended you work during your Peak Productivity (7 a.m. to 12 p.m.) and rest in the afternoon. Best Routine: Tackle high-priority, analytical, or physical work early, as energy drops in the afternoon.",
+        "bear": "🐻 Bear (40% of people): Follows the sun. Schedule: Wake ~7 a.m., Sleep ~11 p.m. AI Insight: It is recommended you work during your Peak Productivity (10 a.m. to 2 p.m.) and rest in the early evening. Best Routine: Deep work in the morning, administrative tasks in the afternoon slump, and exercise in the early evening.",
+        "wolf": "🐺 Wolf (30% of people): Night owl. Schedule: Wake ~7:30 a.m. or later, Sleep ~12 a.m. or later. AI Insight: It is recommended you work during your Peak Productivity (4 p.m. to 6 p.m. or later) and ease into the morning. Best Routine: Creative work in the evening; ease into the morning with lighter tasks.",
+        "night_owl": "🦉 Night Owl: Extreme evening focus. Schedule: Wake ~10 a.m., Sleep ~2 a.m. AI Insight: It is recommended you work during your Peak Productivity (8 p.m. to 12 a.m.) and rest in the morning. Best Routine: Deep focus late at night when the world is quiet.",
+        "dolphin": "🐬 Dolphin (10% of people): Sensitive sleeper/insomniac. Schedule: Wake ~6:30 a.m., Sleep ~11:30 p.m. AI Insight: It is recommended you work during your Peak Productivity (10 a.m. to 2 p.m.) and rest as needed. Best Routine: Requires a more flexible schedule, with focus on consistent, moderate-intensity workouts to manage stress.",
     }
     recs.append({
         "type": "chronotype",
         "title": "Chronotype Tip",
-        "message": chronotype_messages.get(chronotype, chronotype_messages["neutral"]),
+        "message": chronotype_messages.get(chronotype, chronotype_messages.get("bear", "")),
         "severity": "info"
     })
     
@@ -101,5 +167,14 @@ def generate_recommendations(user: dict, schedule: dict, max_daily_load: float) 
         "message": f"Based on your chronotype, your ideal recovery windows are before {work_start}:00am and after {peak['peak_end']}:00pm. Avoid scheduling cognitive work outside these bounds.",
         "severity": "info"
     })
+    
+    # --- Dynamic Gemini AI Insights ---
+    try:
+        ai_dynamic_recs = generate_ai_schedule_insights(user, schedule)
+        # We append these high-value insights directly after the static chronotype tip
+        if ai_dynamic_recs:
+            recs.extend(ai_dynamic_recs)
+    except Exception as e:
+        print(f"Error generating dynamic AI insights: {e}")
     
     return recs

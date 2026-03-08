@@ -40,6 +40,14 @@ const CHRONOTYPE_LABELS: Record<string, string> = {
   dolphin: "🐬 Dolphin",
 };
 
+const CHRONOTYPE_HOURS: Record<string, { work: string, rest: string }> = {
+  lion: { work: "8 AM - 12 PM, 2 PM - 4 PM", rest: "12 PM - 2 PM, After 5 PM" },
+  bear: { work: "10 AM - 2 PM, 4 PM - 6 PM", rest: "2 PM - 4 PM, After 6 PM" },
+  wolf: { work: "2 PM - 6 PM, 8 PM - 10 PM", rest: "Morning, 6 PM - 8 PM" },
+  night_owl: { work: "8 PM - 12 AM, 2 PM - 4 PM", rest: "Morning, 4 PM - 8 PM" },
+  dolphin: { work: "10 AM - 12 PM, 4 PM - 6 PM", rest: "12 PM - 4 PM, After 6 PM" },
+};
+
 export default function RecommendationsPanel({
   recommendations,
   chronotype = "bear",
@@ -64,6 +72,22 @@ export default function RecommendationsPanel({
           Capacity: {baseCapacity} τ/day
         </span>
       </div>
+
+      {CHRONOTYPE_HOURS[chronotype] && (
+        <div className="bg-muted/40 border border-border rounded-xl p-3 mb-2">
+          <p className="text-xs font-bold text-foreground mb-1.5 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-yellow-500" /> Optimal Rhythm</p>
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            <div>
+              <span className="text-muted-foreground block mb-0.5">Suggested Work</span>
+              <span className="font-medium text-emerald-400">{CHRONOTYPE_HOURS[chronotype].work}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block mb-0.5">Suggested Rest</span>
+              <span className="font-medium text-blue-400">{CHRONOTYPE_HOURS[chronotype].rest}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recommendation cards */}
       {recommendations.map((rec, i) => (

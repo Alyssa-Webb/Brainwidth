@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Clock, Tag, Calendar, X } from "lucide-react";
 import CognitiveLoadChart from "@/components/CognitiveLoadChart";
 
@@ -33,7 +34,7 @@ interface CalendarViewProps {
 
 // Pixel height per hour slot
 const HOUR_HEIGHT = 56;
-const WORK_HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7am–8pm
+const WORK_HOURS = Array.from({ length: 24 }, (_, i) => i); // 12am–11pm
 
 function getDateFromKey(dayKey: string): Date | null {
   const match = dayKey.match(/\((.+)\)/);
@@ -94,8 +95,18 @@ function WeekGrid({
   workEnd: number;
   onDeleteTask?: (taskId: string, source: string) => void;
 }) {
-  const now = new Date();
-  const currentHour = now.getHours() + now.getMinutes() / 60;
+  const [currentHour, setCurrentHour] = useState(() => {
+    const now = new Date();
+    return now.getHours() + now.getMinutes() / 60;
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentHour(now.getHours() + now.getMinutes() / 60);
+    }, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Expand to exactly 7 slots
   const days = entries.slice(0, 7);
@@ -110,7 +121,7 @@ function WeekGrid({
             className="text-[10px] text-muted-foreground text-right pr-2 font-mono"
             style={{ height: HOUR_HEIGHT }}
           >
-            {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
+            {h === 0 ? "12a" : h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
           </div>
         ))}
       </div>
@@ -162,7 +173,7 @@ function WeekGrid({
                 {/* Current time indicator (today only) */}
                 {todayCol && currentHour >= WORK_HOURS[0] && currentHour <= WORK_HOURS[WORK_HOURS.length - 1] && (
                   <div
-                    className="absolute left-0 right-0 flex items-center z-20"
+                    className="absolute left-0 right-0 flex items-center z-40 pointer-events-none"
                     style={{ top: (currentHour - WORK_HOURS[0]) * HOUR_HEIGHT - 1 }}
                   >
                     <div className="w-2 h-2 rounded-full bg-red-500 ml-1 shrink-0" />
