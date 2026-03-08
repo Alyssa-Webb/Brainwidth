@@ -27,7 +27,7 @@ With Brainwidth, your schedule is built around *you*.
 
 ---
 
-## 🛠️ How We Built It
+## How We Built It
 
 We utilized a high-performance modern tech stack to handle complex data parsing and real-time scheduling:
 
