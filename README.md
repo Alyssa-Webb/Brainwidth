@@ -1,66 +1,69 @@
-# Brainwidth
+# Brainwidth: Cognitive Load Scheduler
 
-Brainwidth is an AI-powered cognitive scheduling application that optimizes your daily tasks based on your personal Chronotype, cognitive load limits, and personal goals. It intelligently calculates the mental tax of different tasks and schedules them within your peak productivity windows, while automatically injecting necessary decompression breaks based on your current schedule's intensity.
+Developed within 24hours of HACKCU12 2026, **Brainwidth** is a smart scheduling ecosystem designed to transform time management into **Energy Management**. Typical tools like Google Calendar and Outlook only provide linear time blocks, completely ignoring the "Mental Tax" of switching between a high-focus Calculus assignment and a tedious work meeting.
 
-## Features
+---
+## Run Locally
+In order to run locally, a MONGO_URI and GEMINI_API_KEY are required.
 
-- **Chronotype Scheduling:** Automatically restricts tasks and sets ideal work hours according to your biological chronotype (Lion, Bear, Wolf, Dolphin).
-- **Cognitive Load Optimization:** Assigns mental tax weights to each type of task (Deep Work, Admin, Rest, etc.) to prevent you from getting burned out.
-- **Decompression Breaks:** Intelligently inserts micro-breaks and long gaps into your schedule if your cognitive load starts accumulating too heavily.
-- **Goal Infusion:** Fulfills personal goals by suggesting activities during gap recovery periods.
-- **Syllabus Parsing:** Extracts tasks and projects directly from syllabi via AI analysis.
-- **Google Calendar Integration:** Syncs intelligently with your real-life fixed events while calculating their mental toll.
-
-## Prerequisites
-
-Ensure you have the following installed to run Brainwidth locally:
-- Python 3.10+
-- Node.js & npm (for the frontend)
-- MongoDB instance (make sure to set this in your backend `.env` file)
-- Gemini API Key (or Google API Key)
-
-## Installation & Setup
-
-1. **Clone the repository** (if you haven't already).
-
-2. **Frontend Setup**
-   ```bash
    cd frontend
-   npm install
-   # If you use prisma inside the frontend directory, initialize the DB schema:
-   npx -y prisma@5 db push
-   ```
+   npm run dev
 
-3. **Backend Setup**
-   ```bash
    cd backend
-   # Set up a virtual environment
-   python3 -m venv venv
    source venv/bin/activate
-   
-   # Install backend dependencies
-   pip install -r requirements.txt
-   ```
-   *Make sure you create a `.env` file in the `backend` directory with your necessary database and API keys.*
+   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-## Running the Application
+   View the site as http://localhost:3000, and see tool-tip to the left to the scheduling dashboard after creating an account.
 
-You need to run both the frontend development server and the backend FastAPI application simultaneously.
+---
 
-### 1. Start the Frontend
-Open a terminal and navigate to the frontend directory:
-```bash
-cd frontend
-npm run dev
-```
+## What It Does
 
-### 2. Start the Backend
-Open a new terminal and navigate to the backend directory:
-```bash
-cd backend
-source venv/bin/activate
-python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+With Brainwidth, your schedule is built around *you*. 
 
-## Usage
-Once both servers are running, access the web client at `http://localhost:3000`. Set up your Chronotype in your Profile, input your goals, and start generating your optimized AI schedule!
+* **Chronotype Quiz:** Users create a unique profile (Lion, Bear, Dolphin, or Wolf) by taking an assessment that maps their natural sleep patterns, energy levels, and productivity habits.
+* **Syllabus Parsing:** Upload your course syllabi, and our AI agent (Gemini) evaluates the text to determine the cognitive load required for the course.
+* **Smart Scheduling:** Whether you are uploading a new syllabus, scheduling tasks for the week, or retaking the chronotype quiz, Brainwidth automatically schedules the absolute best times of day to get your work done productively and healthily.
+
+---
+
+## 🛠️ How We Built It
+
+We utilized a high-performance modern tech stack to handle complex data parsing and real-time scheduling:
+
+* **Google Gemini API:** The core engine for unstructured data extraction and RAG-based syllabus analysis.
+* **Next.js & Tailwind CSS:** For a sleek, responsive frontend that visually maps cognitive load.
+* **Python (Flask/FastAPI):** Handling the algorithmic logic for the "Mental Tax" and data processing.
+* **MongoDB Atlas:** To securely store complex, nested user profiles and evolving "Chronotype" data.
+* **Antigravity IDE:** Our primary environment, necessary for prompt-engineering and seamless collaboration.
+* **GitHub:** Vital for version control and coordinating our team's workflow.
+
+---
+
+## Challenges We Ran Into
+
+* **Navigating Prompt-Driven Development:** Learning to build a full-stack application within the Antigravity IDE required a massive shift in our workflow. We had to adapt to "prompt-driven" programming, coordinating the work we'd get done using our respective AI agents.
+* **Managing Gemini API Limits:** As we fed complex, multi-page syllabus PDFs into Gemini, we quickly hit rate-limiting bottlenecks. We learned how to optimize our prompt payloads, structure asynchronous requests, and handle API constraints gracefully to ensure the app didn't crash during heavy extraction.
+* **Local Google Calendar Integration:** Linking a user's real Google Calendar locally proved very tricky. We had to navigate the strict intricacies of Google's OAuth 2.0 flow, securely manage access tokens, and ensure our `localhost` environment could authenticate and fetch live events without exposing credentials.
+
+---
+
+## Accomplishments That We're Proud Of
+
+* **It's Functional!:** As our very first Hackathon, it was a blast coming up with ideas and tackling our chosen track head-on. We are incredibly grateful to have had the time to attend and actually build something real.
+* **Mastering New Technologies:** Being introduced to modern tools like Google's Antigravity caused a huge, positive shift in our project. Getting this exposure made a significant impact on our understanding of current tech and how to rapidly speed up our workflow in the future.
+
+---
+
+## What We Learned
+
+As a team, we learned how to navigate prompt engineering to solve a deeply personal problem in our community. Hyma’s experience as a Residential Advisor (RA) allowed her to see the stress of incoming students firsthand, recognizing how difficult it is to manage a schedule amidst academic pressure. For Alyssa, this project opened exciting new avenues for how our team can continue developing projects geared toward genuine social impact.
+
+---
+
+## What's Next for Brainwidth
+
+We have several exciting implementations planned for the future:
+* **Expanded Research:** Incorporating more peer-reviewed, research-backed data to refine our weighting algorithms.
+* **Biometric Integration:** Using real-time user data from wearables to adjust schedules based on live sleep and recovery metrics.
+* **Beyond the University:** Expanding our audience to high school students and corporate professionals to reinforce healthy planning habits and reduce burnout across all high-stress industries.
