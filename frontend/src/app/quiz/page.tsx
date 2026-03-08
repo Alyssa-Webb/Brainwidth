@@ -319,10 +319,10 @@ export default function QuizPage() {
               <h2 className="text-lg font-bold">The 4 Chronotypes</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  { value: "lion", label: "Lion", icon: "🦁", percentage: "15%", schedule: "Wake ~5:30 a.m. | Sleep ~9:30 p.m.", peak: "7 a.m. to 12 p.m.", routine: "Tackle high-priority, analytical, or physical work early, as energy drops in the afternoon." },
+                  { value: "lion", label: "Lion", icon: "🦁", percentage: "15%", schedule: "Wake ~5:30 a.m. | Sleep ~9:30 p.m.", peak: "8 a.m. to 12 p.m.", routine: "Tackle analytical work early, as energy drops in the afternoon. Avoid complex work after 4 p.m." },
                   { value: "bear", label: "Bear", icon: "🐻", percentage: "40%", schedule: "Wake ~7 a.m. | Sleep ~11 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Deep work in the morning, administrative tasks in the afternoon slump, and exercise in the early evening." },
-                  { value: "wolf", label: "Wolf (Night Owl)", icon: "🐺", percentage: "35%", schedule: "Wake ~10 a.m.+ | Sleep ~2 a.m.+", peak: "4 p.m. to 6 p.m. or later", routine: "Creative or deep work in the evening; ease into the morning with lighter tasks." },
-                  { value: "dolphin", label: "Dolphin", icon: "🐬", percentage: "10%", schedule: "Wake ~6:30 a.m. | Sleep ~11:30 p.m.", peak: "10 a.m. to 2 p.m.", routine: "Requires a flexible schedule. Focus on consistent, moderate-intensity workouts to manage stress." }
+                  { value: "wolf", label: "Wolf (Night Owl)", icon: "🐺", percentage: "35%", schedule: "Wake ~9 a.m.+ | Sleep ~1 a.m.+", peak: "4 p.m. to 8 p.m. & Late Night", routine: "Creative or deep work in the evening; ease into the morning with lighter tasks." },
+                  { value: "dolphin", label: "Dolphin", icon: "🐬", percentage: "10%", schedule: "Wake ~6:30 a.m. | Sleep ~11:30 p.m.", peak: "10 a.m. to 1 p.m. & 4 p.m.-7 p.m.", routine: "Focus during midday surges; use frequent moderate breaks to manage stress and avoid over-taxing." }
                 ].map((ct) => (
                   <div
                     key={ct.value}

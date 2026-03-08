@@ -37,14 +37,18 @@ const CHRONOTYPE_LABELS: Record<string, string> = {
   lion: "🦁 Lion",
   bear: "🐻 Bear",
   wolf: "🐺 Wolf (Night Owl)",
+  night_owl: "🦉 Night Owl",
   dolphin: "🐬 Dolphin",
+  neutral: "🌤️ Neutral",
 };
 
 const CHRONOTYPE_HOURS: Record<string, { work: string, rest: string }> = {
-  lion: { work: "8 AM - 12 PM, 2 PM - 4 PM", rest: "12 PM - 2 PM, After 5 PM" },
-  bear: { work: "10 AM - 2 PM, 4 PM - 6 PM", rest: "2 PM - 4 PM, After 6 PM" },
-  wolf: { work: "2 PM - 6 PM, 8 PM - 10 PM", rest: "Morning, 6 PM - 8 PM" },
-  dolphin: { work: "10 AM - 12 PM, 4 PM - 6 PM", rest: "12 PM - 4 PM, After 6 PM" },
+  lion: { work: "8 AM - 12 PM, 1 PM - 4 PM", rest: "After 4 PM, Morning Before 8 AM" },
+  bear: { work: "10 AM - 2 PM, 4 PM - 7 PM", rest: "2 PM - 4 PM, After 7 PM" },
+  wolf: { work: "4 PM - 8 PM, 9 PM - 12 AM", rest: "Morning, Early Afternoon" },
+  night_owl: { work: "4 PM - 8 PM, 9 PM - 12 AM", rest: "Morning, Early Afternoon" },
+  dolphin: { work: "10 AM - 1 PM, 4 PM - 7 PM", rest: "1 PM - 4 PM, After 7 PM" },
+  neutral: { work: "10 AM - 2 PM, 4 PM - 7 PM", rest: "2 PM - 4 PM, After 7 PM" },
 };
 
 export default function RecommendationsPanel({

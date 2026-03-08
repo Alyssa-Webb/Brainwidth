@@ -35,11 +35,19 @@ GCAL_RESTFUL_KEYWORDS = [
 CONTEXT_SWITCH_PENALTY = 0.15
 
 # Chronotype peak performance windows (hour of day)
+# Synchronized with frontend display and standard definitions
 CHRONOTYPE_PEAKS = {
-    "lion": {"peak_start": 5, "peak_end": 10, "secondary_start": 5, "secondary_end": 12},
-    "bear": {"peak_start": 10, "peak_end": 14, "secondary_start": 10, "secondary_end": 14},
-    "wolf": {"peak_start": 12, "peak_end": 15, "secondary_start": 17, "secondary_end": 21},
-    "dolphin": {"peak_start": 10, "peak_end": 13, "secondary_start": 10, "secondary_end": 13},
+    # Lion (Early Bird): Tackle analytical tasks early before afternoon lull
+    "lion": {"peak_start": 8, "peak_end": 12, "secondary_start": 13, "secondary_end": 16},
+    # Bear (Standard Solar): Optimal workflow mid-day
+    "bear": {"peak_start": 10, "peak_end": 14, "secondary_start": 16, "secondary_end": 19},
+    # Wolf (Night Owl): True peak starts in late afternoon and extends into night
+    "wolf": {"peak_start": 16, "peak_end": 20, "secondary_start": 21, "secondary_end": 23.9},
+    "night_owl": {"peak_start": 16, "peak_end": 20, "secondary_start": 21, "secondary_end": 23.9},
+    # Dolphin (Alert/Anxious): Mid-day focus, late afternoon recovery
+    "dolphin": {"peak_start": 10, "peak_end": 13, "secondary_start": 16, "secondary_end": 19},
+    # Neutral (Mid-day): standard daylight rhythm like a Bear
+    "neutral": {"peak_start": 10, "peak_end": 14, "secondary_start": 16, "secondary_end": 19},
 }
 
 
@@ -157,57 +165,60 @@ def get_hourly_load_curve(
 
     return hourly
 
-def get_next_available_slot(current_time: float, duration: float, chronotype: str, busy_slots: list[tuple[float, float]], work_start: float = 8.0, work_end: float = 20.0, ignore_peaks: bool = False) -> float:
+def get_next_available_slot(current_time: float, duration: float, chronotype: str, busy_slots: list[tuple[float, float]], work_start: float = 8.0, work_end: float = 20.0, high_tax: bool = False, ignore_peaks: bool = False) -> float:
     """
     Finds the earliest start time >= current_time such that a task of `duration`
     fits without overlapping busy_slots.
+    
+    If high_tax is True, prioritizes the primary peak window.
+    Otherwise prioritizes the secondary window.
     """
-    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
-    work_start_f = float(min(peak["peak_start"], peak["secondary_start"]))
-    work_end_f = float(max(peak["peak_end"], peak["secondary_end"]))
+    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["neutral"])
     
     if ignore_peaks:
-        # For weights, prefer the start of the day (work_start)
-        windows = [(work_start_f, work_end_f)]
-    else:
+        # Full day search
+        windows = [(0.0, 24.0)]
+    elif high_tax:
+        # High tax (Deep Work) -> Primary Peak first, then any available work window
         windows = [
             (peak["peak_start"], peak["peak_end"]),
-            (peak["secondary_start"], peak["secondary_end"])
+            (peak["secondary_start"], peak["secondary_end"]),
+            (8.0, 23.9) # Absolute fallback day range
+        ]
+    else:
+        # Low tax (Admin) -> Secondary Peak first, then primary, then any available
+        windows = [
+            (peak["secondary_start"], peak["secondary_end"]),
+            (peak["peak_start"], peak["peak_end"]),
+            (8.0, 23.9)
         ]
     
     def is_overlapping(start, end, slots):
         for s, e in slots:
-            # Buffer of 0.001 (approx 4 seconds)
             if max(start, s) + 0.001 < min(end, e):
                 return True
         return False
 
     for w_start, w_end in windows:
         t = max(current_time, float(w_start))
-        
-        # Inner loop: search within this window
-        while t + duration <= w_end + 0.001:
+        while t + duration <= float(w_end) + 0.001:
             if not is_overlapping(t, t + duration, busy_slots):
                 return round(t, 2)
-                
             # Find the slot we collided with and jump to its end
             collided_slot_end = None
             for s, e in busy_slots:
                 if max(t, s) + 0.001 < min(t + duration, e):
-                    # We hit this one. Jump to its end.
                     if collided_slot_end is None or e > collided_slot_end:
                         collided_slot_end = e
-            
             if collided_slot_end is not None:
                 t = collided_slot_end
             else:
-                t += 0.25 # Safety increment
-                
+                t += 0.25
     return None
 
 def build_decompression_breaks(
     tasks: list,
-    chronotype: str = "bear",
+    chronotype: str = "neutral",
     work_start: int = 8,
     work_end: int = 20,
     decompress: bool = False,
@@ -217,82 +228,70 @@ def build_decompression_breaks(
     Main scheduling engine. Distinguishes between fixed events, 
     morning-priority 'Weights', and chronotype-aware flexible tasks.
     """
-    # Use the chronotype directly instead of the 8am-8pm defaults
-    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
-    work_start_f = float(min(peak["peak_start"], peak["secondary_start"]))
-    work_end_f = float(max(peak["peak_end"], peak["secondary_end"]))
+    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["neutral"])
+    # Day start/end for core operations
+    day_start = float(min(peak["peak_start"], peak["secondary_start"], 8.0))
+    day_end = float(max(peak["peak_end"], peak["secondary_end"], 23.9))
 
     # 1. Categorize Tasks
     fixed = sorted([t for t in tasks if t.get("is_fixed")], key=lambda x: x.get("start_hour", 0))
-    # Weights are Syllabus items (flexible but pinned to morning)
     weights = [t for t in tasks if t.get("is_weight") and not t.get("is_fixed")]
-    # Flexible are regular user tasks/assignments
     flexible = [t for t in tasks if not t.get("is_fixed") and not t.get("is_weight")]
     
     if decompress:
         flexible.sort(key=lambda x: x.get("mental_tax", 0), reverse=True)
 
-    # 2. Track Busy Slots (init with fixed events from GCal/Manual)
+    # 2. Track Busy Slots (init with fixed events)
     busy_slots = []
     for ft in fixed:
-        sh = ft.get("start_hour", work_start_f)
+        sh = ft.get("start_hour", 9.0)
         d = ft.get("duration", 1.0)
         busy_slots.append((sh, sh + d))
     
     scheduled = []
 
-    # 3. Schedule Weights (Pin to Morning consecutively)
-    w_ptr = work_start_f
+    # 3. Schedule Weights (Syllabus items)
     for wt in weights:
         dur = float(wt.get("duration", 0.5))
-        sh = get_next_available_slot(w_ptr, dur, chronotype, busy_slots, work_start=work_start_f, work_end=work_end_f, ignore_peaks=True)
+        # Search from day start, ignore peaks to fill morning capacity
+        sh = get_next_available_slot(day_start, dur, chronotype, busy_slots, ignore_peaks=True)
         if sh is not None:
             wt["start_hour"] = sh
             busy_slots.append((sh, sh + dur))
             scheduled.append(wt)
-            w_ptr = sh + dur
         else:
-            # Better fallback: Push to peak start but still track busy_slots to prevent STACKING
-            sh_fallback = get_next_available_slot(0.0, dur, chronotype, busy_slots)
-            if sh_fallback is None:
-                peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
-                sh_fallback = float(peak["peak_start"])
-            wt["start_hour"] = sh_fallback
-            busy_slots.append((sh_fallback, sh_fallback + dur))
-            scheduled.append(wt)
+            # Fallback search early day
+            sh = get_next_available_slot(0.0, dur, chronotype, busy_slots, ignore_peaks=True)
+            if sh is not None:
+                wt["start_hour"] = sh
+                busy_slots.append((sh, sh + dur))
+                scheduled.append(wt)
 
     # 4. Schedule Flexible Tasks (Chronotype Peaks)
-    # Use a pointer that starts at work_start_f but increments as tasks are placed
-    f_ptr = work_start_f
     for t in flexible:
         dur = float(t.get("duration", 1.0))
-        sh = get_next_available_slot(f_ptr, dur, chronotype, busy_slots, work_start=work_start_f, work_end=work_end_f)
+        tax = float(t.get("mental_tax", 0.5))
+        is_high_tax = (tax >= 0.7)
         
-        if sh is None:
-            # Fallback for this task specifically: search from work_start again
-            sh = get_next_available_slot(work_start_f, dur, chronotype, busy_slots, work_start=work_start_f, work_end=work_end_f)
-
+        # Chronotype routing: High tax -> Peak, Low tax -> Secondary
+        sh = get_next_available_slot(day_start, dur, chronotype, busy_slots, high_tax=is_high_tax)
+        
         if sh is not None:
             t["start_hour"] = sh
             busy_slots.append((sh, sh + dur))
             scheduled.append(t)
-            # Update pointer to the end of this task to encourage sequential flow
-            f_ptr = sh + dur
         else:
-            # Absolute fallback: Search the whole day
-            sh_fallback = get_next_available_slot(0.0, dur, chronotype, busy_slots)
-            if sh_fallback is None:
-                peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
-                sh_fallback = float(peak["peak_start"])
-            t["start_hour"] = sh_fallback
-            busy_slots.append((sh_fallback, sh_fallback + dur))
-            scheduled.append(t)
-            f_ptr = max(f_ptr, sh_fallback + dur)
+            # Absolute fallback: Search whole day ignoring peaks
+            sh_fallback = get_next_available_slot(0.0, dur, chronotype, busy_slots, ignore_peaks=True)
+            if sh_fallback is not None:
+                t["start_hour"] = sh_fallback
+                busy_slots.append((sh_fallback, sh_fallback + dur))
+                scheduled.append(t)
 
-    # Combine and add breaks/rests
+    # 5. Combine and add breaks/rests
     all_tasks = sorted(fixed + scheduled, key=lambda x: x.get("start_hour", 0))
     enriched = []
-    cursor = work_start_f
+    cursor = day_start
 
     for i, task in enumerate(all_tasks):
         sh = float(task.get("start_hour", cursor))
@@ -301,8 +300,8 @@ def build_decompression_breaks(
 
         # Gap Rest (Decompress mode only)
         if decompress and sh > cursor:
-            start_gap = max(cursor, work_start_f)
-            end_gap = min(sh, work_end_f)
+            start_gap = cursor
+            end_gap = sh
             gap = end_gap - start_gap
             if gap >= 0.5:
                 title = "🌿 Gap Recovery"
@@ -328,12 +327,12 @@ def build_decompression_breaks(
         
         enriched.append(task)
         
-        # Post-task Micro-break
+        # Post-task Micro-break (Decompress only)
         if decompress and tax >= 0.7:
-            nxt = all_tasks[i+1].get("start_hour", work_end_f) if i+1 < len(all_tasks) else work_end_f
+            nxt = all_tasks[i+1].get("start_hour", day_end) if i+1 < len(all_tasks) else day_end
             if nxt > sh + dur:
                 start_micro = sh + dur
-                end_micro = min(nxt, work_end_f)
+                end_micro = min(nxt, day_end)
                 b_dur = min(0.5, end_micro - start_micro)
                 if b_dur >= 0.15:
                     enriched.append({
