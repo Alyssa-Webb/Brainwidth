@@ -1,9 +1,10 @@
 "use client";
 
-import { Clock, Tag, Calendar } from "lucide-react";
+import { Clock, Tag, Calendar, X } from "lucide-react";
 import CognitiveLoadChart from "@/components/CognitiveLoadChart";
 
 interface TaskItem {
+  id?: string;
   source: string;
   title: string;
   mental_tax: number;
@@ -27,6 +28,7 @@ interface CalendarViewProps {
   baseCapacity?: number;
   workStart?: number;
   workEnd?: number;
+  onDeleteTask?: (taskId: string, source: string) => void;
 }
 
 // Pixel height per hour slot
@@ -84,11 +86,13 @@ function WeekGrid({
   baseCapacity,
   workStart,
   workEnd,
+  onDeleteTask,
 }: {
   entries: [string, DaySchedule][];
   baseCapacity: number;
   workStart: number;
   workEnd: number;
+  onDeleteTask?: (taskId: string, source: string) => void;
 }) {
   const now = new Date();
   const currentHour = now.getHours() + now.getMinutes() / 60;
@@ -189,7 +193,7 @@ function WeekGrid({
                   return (
                     <div
                       key={i}
-                      className={`absolute left-1 right-1 rounded-lg border text-[10px] leading-tight px-1.5 py-1 overflow-hidden z-10 shadow-sm cursor-default hover:z-30 hover:scale-[1.03] transition-transform ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}
+                      className={`group absolute left-1 right-1 rounded-lg border text-[10px] leading-tight px-1.5 py-1 overflow-hidden z-10 shadow-sm cursor-default hover:z-30 hover:scale-[1.03] transition-transform ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}
                       style={{ top: topOffset, height: blockHeight }}
                       title={`${task.title}${task.location ? ` @ ${task.location}` : ""} — ${task.is_break ? "-" : "+"}${task.mental_tax}τ`}
                     >
@@ -200,14 +204,32 @@ function WeekGrid({
                           <p className="font-mono opacity-80">{task.is_break ? "-" : "+"}{task.mental_tax?.toFixed(2) ?? "-"}τ</p>
                         </>
                       )}
-                      {task.is_fixed && !task.is_break && task.source !== "Syllabus" && (
+                      {task.is_fixed && !task.is_break && task.source === "Google Calendar" && (
                         <span className="absolute top-1 right-1 text-[7px] bg-blue-500/30 text-blue-300 px-1 rounded">GCal</span>
+                      )}
+                      {task.is_fixed && !task.is_break && task.source === "Default Calendar" && (
+                        <span className="absolute top-1 right-1 text-[7px] bg-gray-500/30 text-gray-300 px-1 rounded">Default</span>
                       )}
                       {task.is_fixed && !task.is_break && task.source === "Syllabus" && (
                         <span className="absolute top-1 right-1 text-[7px] bg-purple-500/30 text-purple-300 px-1 rounded">Class Load</span>
                       )}
                       {task.is_break && (
                         <span className="absolute top-1 right-1 text-[7px] bg-emerald-500/30 text-emerald-500 px-1 rounded">Break</span>
+                      )}
+                      
+                      {/* Delete Button */}
+                      {onDeleteTask && task.id && !task.is_break && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Remove "${task.title}"?`)) {
+                              onDeleteTask(task.id!, task.source);
+                            }
+                          }}
+                          className="absolute top-1 right-1 p-0.5 rounded-md hover:bg-foreground/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
                       )}
                     </div>
                   );
@@ -228,11 +250,13 @@ function MonthList({
   baseCapacity,
   workStart,
   workEnd,
+  onDeleteTask,
 }: {
   entries: [string, DaySchedule][];
   baseCapacity: number;
   workStart: number;
   workEnd: number;
+  onDeleteTask?: (taskId: string, source: string) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -261,8 +285,19 @@ function MonthList({
             <CognitiveLoadChart hourlyLoad={hourlyLoad} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} height={55} />
             <div className="mt-3 flex flex-wrap gap-2">
               {dayData.tasks.map((task, i) => (
-                <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}>
+                <span key={i} className={`group flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${getTaskBg(task.is_fixed, task.mental_tax, baseCapacity, task.is_break, task.source)}`}>
                   {task.title} ({task.is_break ? "-" : "+"}{task.mental_tax?.toFixed(2)}τ)
+                  {onDeleteTask && task.id && !task.is_break && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTask(task.id!, task.source);
+                      }}
+                      className="hover:text-red-500 transition-colors"
+                    >
+                      <X size={8} />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
@@ -281,6 +316,7 @@ export default function CalendarView({
   baseCapacity = 8.0,
   workStart = 7,
   workEnd = 21,
+  onDeleteTask,
 }: CalendarViewProps) {
   if (!scheduleData || Object.keys(scheduleData).length === 0) {
     return (
@@ -295,7 +331,7 @@ export default function CalendarView({
   const entries = Object.entries(scheduleData) as [string, DaySchedule][];
 
   if (view === "week") {
-    return <WeekGrid entries={entries} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} />;
+    return <WeekGrid entries={entries} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} onDeleteTask={onDeleteTask} />;
   }
-  return <MonthList entries={entries} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} />;
+  return <MonthList entries={entries} baseCapacity={baseCapacity} workStart={workStart} workEnd={workEnd} onDeleteTask={onDeleteTask} />;
 }

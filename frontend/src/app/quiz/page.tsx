@@ -11,74 +11,50 @@ import { api, getToken } from "@/lib/auth";
 const QUESTIONS = [
   {
     id: "wake_time",
-    title: "Discover your Chronotype",
-    subtitle: "Your chronotype determines your natural energy peaks. Brainwidth schedules deep work at exactly the right moment.",
+    title: "Natural Rhythm",
+    subtitle: "Your chronotype determines your natural energy peaks.",
     question: "When do you naturally wake up without an alarm?",
     options: [
-      { label: "Before 6:00 AM — I'm up before dawn", signals: { chronotype: "morning", capacity: +0.5 } },
-      { label: "6:00–7:30 AM — Early but not extreme", signals: { chronotype: "morning", capacity: +0.25 } },
-      { label: "7:30–9:00 AM — Middle of the road", signals: { chronotype: "neutral", capacity: 0 } },
-      { label: "After 9:00 AM — Night owl through and through", signals: { chronotype: "evening", capacity: -0.25 } },
+      { label: "Before 6:00 AM — Early riser", signals: { lion: 3, bear: 0, wolf: 0, night_owl: 0, dolphin: 1, capacity: +0.5 } },
+      { label: "7:00–8:30 AM — With the sun", signals: { lion: 0, bear: 3, wolf: 0, night_owl: 0, dolphin: 0, capacity: +0.25 } },
+      { label: "9:00 AM or later — Night owl tendencies", signals: { lion: 0, bear: 0, wolf: 3, night_owl: 2, dolphin: 0, capacity: -0.25 } },
+      { label: "It varies — My sleep is often restless", signals: { lion: 0, bear: 0, wolf: 0, night_owl: 0, dolphin: 3, capacity: -0.5 } },
     ]
   },
   {
     id: "peak_focus",
     title: "Energy Peaks",
     subtitle: "Knowing when you're sharpest lets us front-load your hardest work.",
-    question: "When do you feel your sharpest and most focused?",
+    question: "When do you feel your sharpest and most focused for deep work?",
     options: [
-      { label: "Morning (before noon) — Peak clarity in the AM", signals: { chronotype: "morning", capacity: +0.5 } },
-      { label: "Early afternoon (12–3 PM)", signals: { chronotype: "neutral", capacity: +0.25 } },
-      { label: "Late afternoon / evening (3–7 PM)", signals: { chronotype: "evening", capacity: +0.25 } },
-      { label: "Night (after 8 PM)", signals: { chronotype: "evening", capacity: 0 } },
+      { label: "Morning (8 AM – 12 PM)", signals: { lion: 3, bear: 1, wolf: 0, night_owl: 0, dolphin: 0, capacity: +0.5 } },
+      { label: "Mid-day (11 AM – 3 PM)", signals: { lion: 0, bear: 3, wolf: 0, night_owl: 0, dolphin: 1, capacity: +0.25 } },
+      { label: "Evening (5 PM – 9 PM)", signals: { lion: 0, bear: 0, wolf: 3, night_owl: 1, dolphin: 0, capacity: +0.25 } },
+      { label: "Late Night (after 10 PM)", signals: { lion: 0, bear: 0, wolf: 1, night_owl: 3, dolphin: 0, capacity: 0 } },
     ]
   },
   {
     id: "slump",
-    title: "Energy Crashes",
+    title: "The Slump",
     subtitle: "Understanding your lows is just as important as your highs.",
-    question: "When is it hardest to focus on complex tasks (like Calculus)?",
+    question: "When is it hardest to focus on complex tasks?",
     options: [
-      { label: "Early morning — Brain fog before coffee", signals: { chronotype: "evening", capacity: -0.5 } },
-      { label: "Post-lunch slump (1–3 PM)", signals: { chronotype: "neutral", capacity: -0.25 } },
-      { label: "Late evening — brain is fried", signals: { chronotype: "morning", capacity: -0.25 } },
-      { label: "I have consistent energy all day", signals: { chronotype: "neutral", capacity: +0.5 } },
+      { label: "Early morning — Brain fog before coffee", signals: { wolf: 2, night_owl: 2, dolphin: 1, bear: 0, lion: 0, capacity: -0.5 } },
+      { label: "Post-lunch (2 PM – 4 PM)", signals: { bear: 2, lion: 1, wolf: 0, night_owl: 0, dolphin: 0, capacity: -0.25 } },
+      { label: "Late evening — Brain is fried", signals: { lion: 2, bear: 0, wolf: 0, night_owl: 0, dolphin: 0, capacity: -0.25 } },
+      { label: "I feel consistently alert all day", signals: { dolphin: 1, lion: 0, bear: 0, wolf: 0, night_owl: 0, capacity: +0.5 } },
     ]
   },
   {
-    id: "deep_work_hours",
-    title: "Daily Capacity",
-    subtitle: "Everyone has a ceiling. Be honest — this helps us protect yours.",
-    question: "How many hours of deep focus (studying, coding, writing) can you sustain per day?",
+    id: "workflow",
+    title: "Preferred Workflow",
+    subtitle: "How do you naturally approach a big project?",
+    question: "Choose the schedule that sounds most productive for you:",
     options: [
-      { label: "1–2 hours max before I burn out", signals: { chronotype: "neutral", capacity: -2.0 } },
-      { label: "3–4 hours — average day", signals: { chronotype: "neutral", capacity: -1.0 } },
-      { label: "5–6 hours — I'm pretty focused", signals: { chronotype: "neutral", capacity: 0 } },
-      { label: "7+ hours — I can grind all day", signals: { chronotype: "neutral", capacity: +1.0 } },
-    ]
-  },
-  {
-    id: "recovery",
-    title: "Recovery Speed",
-    subtitle: "Resilience affects how quickly we can reschedule heavy tasks.",
-    question: "After a mentally draining session, how long until you feel ready for another?",
-    options: [
-      { label: "15–30 minutes — I bounce back fast", signals: { chronotype: "neutral", capacity: +1.0 } },
-      { label: "1–2 hours with a break / walk", signals: { chronotype: "neutral", capacity: +0.5 } },
-      { label: "Rest of the day — I'm done after one big session", signals: { chronotype: "neutral", capacity: -1.0 } },
-      { label: "I need a full night's sleep to reset", signals: { chronotype: "neutral", capacity: -2.0 } },
-    ]
-  },
-  {
-    id: "ideal_day",
-    title: "Your Ideal Day",
-    subtitle: "This gives us the full picture of how you work best.",
-    question: "Which schedule would feel most natural and productive for you?",
-    options: [
-      { label: "Deep work 7–11 AM, meetings/tasks in the afternoon", signals: { chronotype: "morning", capacity: +0.5 } },
-      { label: "Meetings in the morning, deep work 2–6 PM", signals: { chronotype: "evening", capacity: +0.5 } },
-      { label: "Flexible blocks throughout the day with breaks", signals: { chronotype: "neutral", capacity: 0 } },
-      { label: "Intense sprint at night, sleep in the next day", signals: { chronotype: "evening", capacity: -0.25 } },
+      { label: "Attack it first thing and finish early", signals: { lion: 3, capacity: +0.5 } },
+      { label: "Steady progress through the bulk of the day", signals: { bear: 3, capacity: +0.25 } },
+      { label: "Build momentum and sprint in the late afternoon", signals: { wolf: 3, capacity: +0.25 } },
+      { label: "Total silence at night for intense focus", signals: { night_owl: 3, capacity: 0 } },
     ]
   }
 ];
@@ -88,20 +64,34 @@ const BASE_CAPACITY = 8.0;
 /* ─── Scoring Logic ────────────────────────────────────────────────────────── */
 
 function computeProfile(answers: Record<string, number>) {
-  let morningScore = 0;
-  let eveningScore = 0;
+  const scores = { lion: 0, bear: 0, wolf: 0, night_owl: 0, dolphin: 0 };
   let capacityDelta = 0;
 
   QUESTIONS.forEach((q) => {
     const optionIdx = answers[q.id];
     if (optionIdx === undefined) return;
-    const signals = q.options[optionIdx]?.signals ?? {};
-    if (signals.chronotype === "morning") morningScore++;
-    if (signals.chronotype === "evening") eveningScore++;
-    capacityDelta += signals.capacity ?? 0;
+    const signals = q.options[optionIdx]?.signals as any ?? {};
+    
+    // Sum animal scores
+    scores.lion += (signals.lion || 0);
+    scores.bear += (signals.bear || 0);
+    scores.wolf += (signals.wolf || 0);
+    scores.night_owl += (signals.night_owl || 0);
+    scores.dolphin += (signals.dolphin || 0);
+    
+    capacityDelta += (signals.capacity || 0);
   });
 
-  const chronotype = morningScore > eveningScore ? "morning" : eveningScore > morningScore ? "evening" : "neutral";
+  // Find max score
+  let chronotype = "bear";
+  let maxScore = -1;
+  Object.entries(scores).forEach(([type, score]) => {
+    if (score > maxScore) {
+      maxScore = score;
+      chronotype = type;
+    }
+  });
+
   const base_capacity = Math.max(4, Math.min(14, Math.round((BASE_CAPACITY + capacityDelta) * 2) / 2));
 
   return { chronotype, base_capacity };
@@ -148,14 +138,18 @@ export default function QuizPage() {
   };
 
   const CHRONOTYPE_EMOJI: Record<string, string> = {
-    morning: "🌅",
-    evening: "🌙",
-    neutral: "☀️",
+    lion: "🦁",
+    bear: "🐻",
+    wolf: "🐺",
+    night_owl: "🦉",
+    dolphin: "🐬",
   };
   const CHRONOTYPE_LABEL: Record<string, string> = {
-    morning: "Morning Person",
-    evening: "Night Owl",
-    neutral: "Flexible",
+    lion: "Lion",
+    bear: "Bear",
+    wolf: "Wolf",
+    night_owl: "Night Owl",
+    dolphin: "Dolphin",
   };
 
   return (

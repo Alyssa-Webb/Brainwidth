@@ -15,25 +15,25 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 pb-20 sm:p-20 font-sans relative overflow-hidden bg-background text-foreground transition-colors duration-300">
-      
+
       {/* Background Gradients */}
       <div className="absolute top-0 -left-4 w-72 h-72 bg-primary rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse duration-1000"></div>
       <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-700 duration-1000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000 duration-1000"></div>
 
       <main className="flex flex-col items-center max-w-4xl w-full gap-12 text-center z-10 mt-12">
-        
+
         {/* Hero Section */}
         <section className="space-y-6 flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium text-sm mb-4 border border-primary/20 backdrop-blur-sm shadow-sm">
             <SparklesIcon className="w-4 h-4" />
             <span>Manage your time. Master your Mind.</span>
           </div>
-          
+
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-foreground transition-colors">
-            Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500">Brainwidth</span>
+            Welcome to <span className="bg-clip-text bg-gradient-to-r from-primary to-blue-500">Brainwidth</span>
           </h1>
-          
+
           <p className="text-xl sm:text-2xl text-muted-foreground max-w-2xl leading-relaxed mt-4 transition-colors">
             The first cognitive load scheduler built for students balancing complex semester workloads.
           </p>
@@ -42,23 +42,23 @@ export default function LandingPage() {
         {/* Pitch Section */}
         <section className="bg-card text-card-foreground p-8 sm:p-10 rounded-3xl border border-border shadow-xl shadow-primary/5 max-w-3xl backdrop-blur-md bg-opacity-80 dark:bg-opacity-80 transition-all">
           <p className="text-lg leading-relaxed text-left">
-            Typical tools like Google Calendar and Outlook only provide linear time blocks without considering the <strong className="text-primary font-bold">"Mental Tax"</strong> of switching between a high-level Calculus assignment and a tedious, multi-client meeting. 
-            <br/><br/>
+            Typical tools like Google Calendar and Outlook only provide linear time blocks without considering the <strong className="text-primary font-bold">"Mental Tax"</strong> of switching between a high-level Calculus assignment and a tedious, multi-client meeting.
+            <br /><br />
             Hyma and Alyssa developed Brainwidth to directly support students in managing their time and approaching rigorous tasks intelligently.
           </p>
         </section>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-4">
-          <Link 
-            href="/signup" 
+          <Link
+            href="/signup"
             className="group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/25"
           >
             Get Started
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
-          <Link 
-            href="/login" 
+          <Link
+            href="/login"
             className="flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border rounded-full px-8 py-4 text-lg font-semibold transition-all hover:scale-105 active:scale-95"
           >
             Log In
@@ -67,17 +67,17 @@ export default function LandingPage() {
 
         {/* Feature Highlights */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full mt-12">
-          <FeatureCard 
+          <FeatureCard
             icon={<BrainCircuit className="w-8 h-8 text-primary" />}
             title="Chronotype Quiz"
             description="Discover your peak mental hours and optimize your schedule."
           />
-          <FeatureCard 
+          <FeatureCard
             icon={<CalendarClock className="w-8 h-8 text-blue-500" />}
             title="Tax-Aware Scheduling"
             description="Schedule tasks based on cognitive load, not just available minutes."
           />
-          <FeatureCard 
+          <FeatureCard
             icon={<Zap className="w-8 h-8 text-purple-500" />}
             title="AI Chatbot Assistant"
             description="Get real-time scheduling advice from your personal AI."

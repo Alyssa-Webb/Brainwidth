@@ -33,14 +33,16 @@ const SEVERITY_STYLES: Record<string, string> = {
 };
 
 const CHRONOTYPE_LABELS: Record<string, string> = {
-  morning: "🌅 Morning Person",
-  evening: "🌙 Night Owl",
-  neutral: "☀️ Flexible",
+  lion: "🦁 Lion",
+  bear: "🐻 Bear",
+  wolf: "🐺 Wolf",
+  night_owl: "🦉 Night Owl",
+  dolphin: "🐬 Dolphin",
 };
 
 export default function RecommendationsPanel({
   recommendations,
-  chronotype = "neutral",
+  chronotype = "bear",
   baseCapacity = 8.0
 }: RecommendationsPanelProps) {
   if (!recommendations || recommendations.length === 0) {

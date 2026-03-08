@@ -46,7 +46,7 @@ export default function DashboardPage() {
   const generateSchedule = async (decompress: boolean = false, forceSync: boolean = false) => {
     if (forceSync) setIsSyncing(true);
     else setIsGenerating(true);
-    
+
     setDecompressMode(decompress);
     try {
       const response = await api.get(`/optimize?decompress=${decompress}&force_sync=${forceSync}`);
@@ -83,6 +83,21 @@ export default function DashboardPage() {
     await loadRecommendations();
   };
 
+  const handleDeleteTask = async (taskId: string, source: string) => {
+    if (source !== "Flux") {
+      alert("Only tasks added via Flux can be removed from this view.");
+      return;
+    }
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      // Re-run optimization to fill the gap or just refresh
+      await generateSchedule(decompressMode);
+      await loadRecommendations();
+    } catch (error) {
+      console.error("Failed to delete task", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 font-sans">
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -91,14 +106,14 @@ export default function DashboardPage() {
       </div>
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-4 py-6">
-        
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold">Good {getTimeOfDay()}, {userName} 👋</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Here's your cognitive schedule for the week.</p>
           </div>
-          
+
           <div className="flex items-center gap-2 flex-wrap">
             {/* View Toggle */}
             <div className="flex items-center gap-1 bg-muted rounded-xl p-1">
@@ -120,11 +135,10 @@ export default function DashboardPage() {
             <button
               onClick={handleDecompress}
               disabled={isGenerating}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
-                decompressMode
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${decompressMode
                   ? "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20"
                   : "bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20"
-              } disabled:opacity-50`}
+                } disabled:opacity-50`}
             >
               <BedDouble size={14} />
               Decompression
@@ -143,7 +157,7 @@ export default function DashboardPage() {
 
             {/* Optimize Button */}
             <button
-              onClick={() => generateSchedule(decompressMode, false)}
+              onClick={() => generateSchedule(false, false)}
               disabled={isGenerating || isSyncing}
               className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2 px-4 rounded-xl text-xs transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
             >
@@ -153,19 +167,11 @@ export default function DashboardPage() {
                 <><ArrowRight size={14} /> Re-Optimize</>
               )}
             </button>
-
-            {/* Profile Link */}
-            <Link
-              href="/profile"
-              className="flex items-center gap-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-2 rounded-xl text-xs font-medium transition-all border border-border"
-            >
-              <User size={12} /> Profile
-            </Link>
           </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          
+
           {/* LEFT SIDEBAR */}
           <div className="xl:col-span-3 flex flex-col gap-4">
             {/* Today's Mental Tax Card */}
@@ -216,9 +222,9 @@ export default function DashboardPage() {
                 {view === "week" ? "7-Day Optimized Flow" : "Monthly Overview"}
               </h2>
               <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/>Low load</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block"/>Medium</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>High load</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Low load</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />Medium</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />High load</span>
                 {scheduledTasks && Object.keys(scheduledTasks).length > 0 && (
                   <span className="font-bold bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full border border-green-500/30">Active</span>
                 )}
@@ -231,6 +237,7 @@ export default function DashboardPage() {
                 baseCapacity={baseCapacity}
                 workStart={workStart}
                 workEnd={workEnd}
+                onDeleteTask={handleDeleteTask}
               />
             </div>
           </div>

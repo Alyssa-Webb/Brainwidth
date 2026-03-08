@@ -33,6 +33,13 @@ pip-log.txt
 pip-delete-this-directory.txt
 backend/server_log.txt
 backend/upload_result.json
+backend/nohup.out
+repro_*.py
+verify_*.py
+test_*.py
+*.log
+.coverage
+htmlcov/
 
 # Node.js / Frontend / Next.js
 node_modules/

@@ -195,11 +195,14 @@ async def upload_syllabus(file: UploadFile = File(...), current_user: dict = Dep
         raise HTTPException(status_code=500, detail=str(e))
 
 class OptimizedTaskItem(BaseModel):
+    id: Optional[str] = None
     source: str
     title: str
     mental_tax: float
     is_fixed: bool
-    start_hour: Optional[int] = None
+    start_hour: Optional[float] = None
+    duration: Optional[float] = 1.0
+    type: Optional[str] = None
     is_break: Optional[bool] = False
 
 class DailySchedule(BaseModel):
@@ -212,6 +215,7 @@ class OptimizedWeekResponse(BaseModel):
     is_overloaded: bool
     base_capacity: float
     schedule: Dict[str, DailySchedule]
+    ai_insights: List[str] = Field(default_factory=list)
 
 @router.get("/optimize", response_model=OptimizedWeekResponse)
 async def optimize_week(
@@ -227,6 +231,7 @@ async def optimize_week(
     base_capacity = float(current_user.get("base_capacity", 8.0))
     work_start = int(current_user.get("work_start_hour", 8))
     work_end = int(current_user.get("work_end_hour", 20))
+    user_goals = current_user.get("goals", [])
     
     def parse_date(date_data):
         if not date_data:
@@ -316,7 +321,7 @@ async def optimize_week(
             if start_hour is None:
                 try:
                     event_dt = datetime.datetime.fromisoformat(event["date"].replace("Z", "+00:00"))
-                    start_hour = event_dt.hour
+                    start_hour = float(event_dt.hour + event_dt.minute / 60.0)
                 except Exception:
                     start_hour = work_start
             optimized_week[day_key].tasks.append(OptimizedTaskItem(
@@ -325,6 +330,8 @@ async def optimize_week(
                 mental_tax=round(abs(tax), 2),
                 is_fixed=True,
                 start_hour=start_hour,
+                duration=event.get("duration", 1.0),
+                type=event.get("type", "Meeting"),
                 is_break=event.get("is_restful", tax < 0)
             ))
             daily_task_buckets[day_key].append({
@@ -341,11 +348,14 @@ async def optimize_week(
             penalty = s.get("daily_load_penalty", 0.0)
             if penalty > 0:
                 optimized_week[day_key].tasks.insert(0, OptimizedTaskItem(
+                    id=f"stem_penalty_{day_key}", # Added id field
                     source="Syllabus",
-                    title=f"{s.get('course_name', 'Class')}",
+                    title="Cognitive Debt (Syllabus)", # Changed title
                     mental_tax=round(penalty, 2),
                     is_fixed=True,
-                    start_hour=work_start, # Pin to start of day
+                    start_hour=float(work_start), # Pin to start of day
+                    duration=penalty,
+                    type="STEM",
                     is_break=False
                 ))
                 daily_task_buckets[day_key].insert(0, {
@@ -361,10 +371,12 @@ async def optimize_week(
         if day_index is not None:
             day_key = f"Day {day_index} ({(today + datetime.timedelta(days=day_index)).isoformat()})"
             optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                id=t.get("id"), # Added id field
                 source="Flux",
                 title=t["title"],
                 mental_tax=round(abs(t["mental_tax"]), 2),
                 is_fixed=False,
+                duration=t.get("duration", 1.0),
                 is_break=(t["mental_tax"] < 0)
             ))
             optimized_week[day_key].total_load += t["mental_tax"]
@@ -382,9 +394,10 @@ async def optimize_week(
                 continue
             # Convert OptimizedTaskItem to dicts, sorted by start_hour
             task_dicts = sorted(
-                [{"title": t.title, "duration": 1.0, "type": "Deep Work",
-                  "mental_tax": t.mental_tax, "start_hour": t.start_hour,
-                  "is_fixed": t.is_fixed, "source": t.source}
+                [{"id": t.id, "title": t.title, "duration": t.duration, "type": t.type or "Deep Work",
+                  "mental_tax": t.mental_tax if not t.is_break else -t.mental_tax, 
+                  "start_hour": t.start_hour,
+                  "is_fixed": t.is_fixed, "source": t.source, "is_break": t.is_break}
                  for t in tasks_in_day],
                 key=lambda x: (x.get("start_hour") or 9)
             )
@@ -394,11 +407,14 @@ async def optimize_week(
             
             for td in enriched:
                 new_task_items.append(OptimizedTaskItem(
+                    id=td.get("id"),
                     source=td.get("source", "Flux"),
                     title=td["title"],
                     mental_tax=round(abs(td["mental_tax"]), 2),
                     is_fixed=td.get("is_fixed", False),
                     start_hour=td.get("start_hour"),
+                    duration=td.get("duration", 1.0),
+                    type=td.get("type", "Break"),
                     is_break=td.get("is_break", td.get("mental_tax", 0) < 0)
                 ))
                 daily_task_buckets[day_key].append({
@@ -424,11 +440,32 @@ async def optimize_week(
         )
 
     real_max = max((v.total_load for v in optimized_week.values()), default=0.0)
+
+    # Generate AI Insights based on goals
+    ai_insights = []
+    if user_goals:
+        for goal in user_goals:
+            goal_lower = goal.lower()
+            if "back-to-back" in goal_lower and decompress:
+                ai_insights.append(f"Goal Achieved: '{goal}'. Decompression Mode inserted recovery buffers between focus blocks.")
+            elif "exercise" in goal_lower or "gym" in goal_lower:
+                days_with_gym = sum(1 for d in optimized_week.values() if any("Gym" in t.title for t in d.tasks))
+                if days_with_gym > 0:
+                    ai_insights.append(f"Goal Progress: '{goal}'. Your schedule includes {days_with_gym} sessions this week.")
+            elif "thesis" in goal_lower:
+                ai_insights.append(f"Goal Focus: '{goal}'. Peak morning slots identified for deep work.")
+
+    if not ai_insights and user_goals:
+        ai_insights.append(f"AI has incorporated your goals (e.g., '{user_goals[0]}') into this week's plan.")
+    elif not user_goals:
+        ai_insights.append("Add goals to your profile to see personalized AI insights here!")
+
     return OptimizedWeekResponse(
         max_daily_load=round(real_max, 2),
         is_overloaded=(real_max > base_capacity),
         base_capacity=base_capacity,
-        schedule=optimized_week
+        schedule=optimized_week,
+        ai_insights=ai_insights
     )
 
 
@@ -649,6 +686,24 @@ async def create_task(
         "gcal_event": gcal_event
     }
 
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(task_id: str, current_user: dict = Depends(get_current_user)):
+    """Deletes a task from MongoDB."""
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected.")
+    
+    try:
+        obj_id = ObjectId(task_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid task ID format.")
+    
+    result = await db.tasks.delete_one({"_id": obj_id, "user_id": str(current_user["_id"])})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Task not found or not authorized.")
+    
+    return {"message": "Task deleted successfully"}
 
 # ─── Google Calendar Events ────────────────────────────────────────────────────
 

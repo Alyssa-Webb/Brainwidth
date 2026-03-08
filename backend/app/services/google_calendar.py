@@ -357,7 +357,7 @@ def _m(eid, title, dur, etype, day_offset, hour, location=""):
         "location": location,
         "priority": "medium",
         "mental_tax": round(tax, 2),
-        "source": "Google Calendar (demo)",
+        "source": "Default Calendar",
         "is_restful": is_restful(etype, title),
     }
 

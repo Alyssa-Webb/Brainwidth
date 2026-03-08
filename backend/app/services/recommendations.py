@@ -15,7 +15,7 @@ def generate_recommendations(user: dict, schedule: dict, max_daily_load: float) 
         schedule: Optimized week schedule from the /optimize endpoint
         max_daily_load: Peak cognitive load found across the week
     """
-    chronotype = user.get("chronotype", "neutral")
+    chronotype = user.get("chronotype", "bear")
     base_capacity = user.get("base_capacity", 8.0)
     goals = user.get("goals", [])
     work_start = user.get("work_start_hour", 8)
@@ -47,13 +47,15 @@ def generate_recommendations(user: dict, schedule: dict, max_daily_load: float) 
         })
     
     # --- Chronotype-Specific Tips ---
-    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["neutral"])
+    peak = CHRONOTYPE_PEAKS.get(chronotype, CHRONOTYPE_PEAKS["bear"])
     peak_label = f"{peak['peak_start']}:00–{peak['peak_end']}:00"
     
     chronotype_messages = {
-        "morning": f"🌅 Morning person detected! Schedule your hardest tasks ({peak_label}) — this is your peak cognitive window.",
-        "evening": f"🌙 Night owl detected! Save deep work for {peak_label} when your focus peaks. Mornings are best for low-effort tasks.",
-        "neutral":  f"☀️ Your energy is consistent through the day. Aim for deep work blocks between {peak_label}."
+        "lion": f"🦁 Lion detected! You're an early riser. Schedule your most demanding deep work between {peak['peak_start']}:00–{peak['peak_end']}:00 when your focus is razor-sharp.",
+        "bear": f"🐻 Bear detected! Your energy follows the sun. Aim for peak focus between {peak['peak_start']}:00–{peak['peak_end']}:00. Use your late afternoon secondary window for lighter tasks.",
+        "wolf": f"🐺 Wolf detected! Your focus intensifies as the day goes on. Save your heaviest cognitive lifting for {peak['peak_start']}:00–{peak['peak_end']}:00.",
+        "night_owl": f"🦉 Night Owl detected! You thrive when the world is quiet. Your prime focus window is late: {peak['peak_start']}:00–{peak['peak_end']}:00.",
+        "dolphin": f"🐬 Dolphin detected! You have a sensitive rhythm. Focus on your most critical tasks during your mid-day peak: {peak['peak_start']}:00–{peak['peak_end']}:00.",
     }
     recs.append({
         "type": "chronotype",
