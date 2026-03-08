@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
+from app.core.security import get_password_hash
+
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -19,11 +21,34 @@ async def seed_db():
     client = AsyncIOMotorClient(MONGO_URI)
     db = client[DB_NAME]
     
+    users_collection = db.users
     tasks_collection = db.tasks
     
     # Optional: Clear existing records before seeding
+    await users_collection.delete_many({})
     await tasks_collection.delete_many({})
-    print("Cleared existing tasks.")
+    print("Cleared existing users and tasks.")
+    
+    # 1. Create Default User with full profile
+    default_user = {
+        "email": "test@test.com",
+        "name": "Alyssa",
+        "hashed_password": get_password_hash("password"),
+        # Phase 6 profile fields
+        "chronotype": "morning",          # Alyssa is a morning person
+        "work_start_hour": 8,
+        "work_end_hour": 20,
+        "base_capacity": 9.0,            # slightly above average
+        "goals": [
+            "Finish thesis by April",
+            "Avoid back-to-back deep work blocks",
+            "Exercise at least 3x a week"
+        ]
+    }
+    user_result = await users_collection.insert_one(default_user)
+    user_id = str(user_result.inserted_id)
+    print(f"Created default user Alyssa with ID: {user_id}")
+
     
     now = datetime.utcnow()
     
@@ -36,7 +61,8 @@ async def seed_db():
             "duration": 3.0,
             "type": "STEM",
             "vector_embedding": mock_embedding(),
-            "createdAt": now
+            "createdAt": now,
+            "user_id": user_id
         },
         {
             "title": "Physics assignment",
@@ -45,7 +71,8 @@ async def seed_db():
             "duration": 2.0,
             "type": "STEM",
             "vector_embedding": mock_embedding(),
-            "createdAt": now
+            "createdAt": now,
+            "user_id": user_id
         },
         # 3 Low-Tax Tasks
         {
@@ -55,7 +82,8 @@ async def seed_db():
             "duration": 0.5,
             "type": "Admin",
             "vector_embedding": mock_embedding(),
-            "createdAt": now
+            "createdAt": now,
+            "user_id": user_id
         },
         {
             "title": "Go to the gym",
@@ -64,7 +92,8 @@ async def seed_db():
             "duration": 1.5,
             "type": "Physical",
             "vector_embedding": mock_embedding(),
-            "createdAt": now
+            "createdAt": now,
+            "user_id": user_id
         },
         {
             "title": "Grocery shopping",
@@ -73,12 +102,13 @@ async def seed_db():
             "duration": 1.0,
             "type": "Admin",
             "vector_embedding": mock_embedding(),
-            "createdAt": now
+            "createdAt": now,
+            "user_id": user_id
         }
     ]
     
     result = await tasks_collection.insert_many(tasks)
-    print(f"Successfully seeded {len(result.inserted_ids)} tasks!")
+    print(f"Successfully seeded {len(result.inserted_ids)} tasks for user Alyssa!")
     
     client.close()
 

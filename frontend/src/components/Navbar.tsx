@@ -1,16 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BrainCircuit, Upload, LogOut, LogIn, UserPlus } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BrainCircuit, Upload, LogOut, LogIn, UserPlus, ListTodo, UserCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle"; // Optional, but usually good to have
+import { useState, useEffect } from "react";
+import { getToken, getUser, removeToken } from "@/lib/auth";
 
 export default function Navbar() {
   const pathname = usePathname();
-  
-  // Simple proxy for auth state based on current route
-  const isPublicPage = ["/", "/login", "/signup"].includes(pathname);
-  const isLoggedIn = !isPublicPage;
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("User");
+
+  useEffect(() => {
+    const token = getToken();
+    const user = getUser();
+    setIsLoggedIn(!!token);
+    if (user?.name) setUserName(user.name);
+  }, [pathname]);
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    removeToken();
+    setIsLoggedIn(false);
+    router.push("/");
+  };
 
   return (
     <nav className="sticky top-0 z-[100] w-full border-b border-border bg-background/80 backdrop-blur-xl transition-colors">
@@ -39,22 +54,39 @@ export default function Navbar() {
                   Quiz
                 </Link>
                 <Link 
+                  href="/tasks" 
+                  className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1.5 ${pathname === '/tasks' ? 'text-primary' : 'text-muted-foreground'}`}
+                >
+                  <ListTodo className="w-4 h-4" />
+                  Tasks
+                </Link>
+                <Link 
                   href="/upload" 
                   className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1.5 ${pathname === '/upload' ? 'text-primary' : 'text-muted-foreground'}`}
                 >
                   <Upload className="w-4 h-4" />
-                  Upload File
+                  Upload
                 </Link>
                 <div className="h-4 w-px bg-border hidden sm:block"></div>
-                <ThemeToggle />
+                <div className="text-sm font-medium text-foreground px-2">
+                  Hi, {userName}
+                </div>
                 <Link 
-                  href="/" 
+                  href="/profile" 
+                  className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1.5 ${pathname === '/profile' ? 'text-primary' : 'text-muted-foreground'}`}
+                >
+                  <UserCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Profile</span>
+                </Link>
+                <ThemeToggle />
+                <button 
+                  onClick={handleLogout}
                   className="text-sm font-medium text-muted-foreground hover:text-destructive flex items-center gap-1.5 transition-colors"
                   title="Log out"
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="hidden sm:inline">Logout</span>
-                </Link>
+                </button>
               </>
             ) : (
               <>

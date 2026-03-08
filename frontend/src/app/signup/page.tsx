@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, AlertCircle } from "lucide-react";
 import { useState } from "react";
+import axios from "axios";
+import { setToken, setUser } from "@/lib/auth";
 
 // Basic SQL Injection prevention regex
-const SQLI_REGEX = /('|"|;|--|\/\*|\*\/|@@|@|char|nchar|varchar|nvarchar|alter|begin|cast|create|cursor|declare|delete|drop|end|exec|execute|fetch|insert|kill|open|select|sys|sysobjects|syscolumns|table|update)/i;
+const SQLI_REGEX = /('|"|;|--|\/\*|\*\/|char|nchar|varchar|nvarchar|alter|begin|cast|create|cursor|declare|delete|drop|end|exec|execute|fetch|insert|kill|open|select|sys|sysobjects|syscolumns|table|update)/i;
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -17,8 +19,9 @@ export default function SignupPage() {
     studentYear: ""
   });
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -32,8 +35,36 @@ export default function SignupPage() {
       return;
     }
 
-    // If safe, proceed to quiz
-    window.location.href = '/quiz';
+    setIsLoading(true);
+    try {
+      // Create user
+      const response = await axios.post("http://localhost:8000/api/auth/signup", {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
+      });
+      
+      if (response.data) {
+        // Auto-login instantly after signup
+        const loginForm = new URLSearchParams();
+        loginForm.append("username", formData.email);
+        loginForm.append("password", formData.password);
+        
+        const loginRes = await axios.post("http://localhost:8000/api/auth/login", loginForm, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" }
+        });
+        
+        if (loginRes.data && loginRes.data.access_token) {
+          setToken(loginRes.data.access_token);
+          setUser({ email: formData.email, name: formData.name });
+          window.location.href = '/dashboard';
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to create account. Email may already be in use.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -173,10 +204,11 @@ export default function SignupPage() {
           
           <button
             type="submit"
-            className="w-full group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-4 h-14 text-lg font-bold transition-all active:scale-95 shadow-lg shadow-primary/20"
+            disabled={isLoading}
+            className="w-full group flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-4 h-14 text-lg font-bold transition-all active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-70"
           >
-            Create Account
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {isLoading ? "Creating Account..." : "Create Account"}
+            {!isLoading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
           </button>
         </form>
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import axios from "axios";
+import { api } from "@/lib/auth";
 import { ArrowLeft, ArrowRight, UploadCloud, FileText, CheckCircle2, X } from "lucide-react";
 
 export default function UploadPage() {
@@ -53,7 +53,7 @@ export default function UploadPage() {
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
-        await axios.post("http://localhost:8000/api/upload-syllabus", formData, {
+        await api.post("/upload-syllabus", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
