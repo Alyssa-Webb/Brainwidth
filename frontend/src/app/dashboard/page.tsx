@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [workStart, setWorkStart] = useState(7);
   const [workEnd, setWorkEnd] = useState(21);
   const [userName, setUserName] = useState("there");
+  const [recsGeneratedAt, setRecsGeneratedAt] = useState<string | undefined>();
 
   // Load user profile for capacity/chronotype, then auto-generate schedule
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function DashboardPage() {
       setRecommendations(res.data.recommendations ?? []);
       if (res.data.chronotype) setChronotype(res.data.chronotype);
       if (res.data.base_capacity) setBaseCapacity(res.data.base_capacity);
+      if (res.data.generated_at) setRecsGeneratedAt(res.data.generated_at);
     } catch {
       // fail silently
     }
@@ -211,6 +213,7 @@ export default function DashboardPage() {
                 recommendations={recommendations}
                 chronotype={chronotype}
                 baseCapacity={baseCapacity}
+                generatedAt={recsGeneratedAt}
               />
             </div>
           </div>

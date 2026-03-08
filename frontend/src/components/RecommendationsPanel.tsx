@@ -13,6 +13,7 @@ interface RecommendationsPanelProps {
   recommendations: Recommendation[];
   chronotype?: string;
   baseCapacity?: number;
+  generatedAt?: string;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -51,7 +52,8 @@ const CHRONOTYPE_HOURS: Record<string, { work: string, rest: string }> = {
 export default function RecommendationsPanel({
   recommendations,
   chronotype = "bear",
-  baseCapacity = 8.0
+  baseCapacity = 8.0,
+  generatedAt
 }: RecommendationsPanelProps) {
   if (!recommendations || recommendations.length === 0) {
     return (
@@ -64,13 +66,21 @@ export default function RecommendationsPanel({
   return (
     <div className="space-y-3">
       {/* Profile summary chips */}
-      <div className="flex flex-wrap gap-2 pb-2">
-        <span className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 font-medium">
-          {CHRONOTYPE_LABELS[chronotype] || "☀️ Flexible"}
-        </span>
-        <span className="text-xs bg-secondary text-secondary-foreground border border-border rounded-full px-3 py-1 font-medium">
-          Capacity: {baseCapacity} τ/day
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-full px-3 py-1 font-medium">
+            {CHRONOTYPE_LABELS[chronotype] || "☀️ Flexible"}
+          </span>
+          <span className="text-xs bg-secondary text-secondary-foreground border border-border rounded-full px-3 py-1 font-medium">
+            Capacity: {baseCapacity} τ/day
+          </span>
+        </div>
+        
+        {generatedAt && (
+          <span className="text-[10px] text-muted-foreground italic">
+            Updated: {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </div>
 
       {CHRONOTYPE_HOURS[chronotype] && (

@@ -196,6 +196,9 @@ async def upload_syllabus(file: UploadFile = File(...), current_user: dict = Dep
                 "reasoning": extracted_data["reasoning"],
                 "uploaded_at": datetime.datetime.utcnow(),
             })
+        
+        # Invalidate recommendations
+        await invalidate_recommendations(current_user["_id"])
                 
         return {
             "message": f"Successfully analyzed syllabus for {extracted_data['title']}.",
@@ -306,6 +309,8 @@ async def optimize_week(
             ]
             await db.tasks.insert_many(demo_tasks)
             await db.users.update_one({"_id": current_user["_id"]}, {"$set": {"has_seen_demo": True}})
+            # Invalidate recommendations since we just added demo tasks
+            await invalidate_recommendations(current_user["_id"])
             cursor = db.tasks.find({"user_id": str(current_user["_id"])})
             flux_tasks = await cursor.to_list(length=100)
         
@@ -423,7 +428,7 @@ async def optimize_week(
         for ft in fixed_flux_tasks:
             if ft["due_date"].date() == day_date:
                 # Add it to the end of the day roughly
-                start_hour = float(work_end - ft.get("duration", 1.0))
+                start_hour = float(float(work_end) - float(ft.get("duration", 1.0)))
                 optimized_week[day_key].tasks.append(OptimizedTaskItem(
                     id=ft["id"],
                     source="Flux",
@@ -655,6 +660,9 @@ async def delete_syllabus(syllabus_id: str, current_user: dict = Depends(get_cur
         "priority": {"$exists": False}
     })
     
+    # Invalidate recommendations
+    await invalidate_recommendations(current_user["_id"])
+    
     return {"message": "Syllabus and associated legacy tasks removed successfully."}
 
 @router.get("/syllabi")
@@ -691,6 +699,23 @@ async def get_recommendations(current_user: dict = Depends(get_current_user)):
     base_capacity = float(current_user.get("base_capacity", 8.0))
     work_start = int(current_user.get("work_start_hour", 8))
     work_end = int(current_user.get("work_end_hour", 20))
+
+    db = get_db()
+    
+    # Check Cache
+    last_recs = current_user.get("last_recommendations")
+    gen_at = current_user.get("recommendations_generated_at")
+    is_stale = current_user.get("recommendations_stale", True)
+    
+    if last_recs and gen_at and not is_stale:
+        # Check if > 24h
+        if (datetime.datetime.utcnow() - gen_at).total_seconds() < 86400:
+            return {
+                "recommendations": last_recs,
+                "base_capacity": base_capacity,
+                "chronotype": chronotype,
+                "generated_at": gen_at.isoformat()
+            }
     
     # Build a lightweight schedule snapshot
     gcal_events = await fetch_events_next_7_days(user_id=str(current_user["_id"]))
@@ -741,8 +766,36 @@ async def get_recommendations(current_user: dict = Depends(get_current_user)):
         schedule=simple_schedule,
         max_daily_load=max_load or 0.0
     )
-    return {"recommendations": recs, "base_capacity": base_capacity, "chronotype": chronotype}
+    
+    # Save to cache
+    generated_at = datetime.datetime.utcnow()
+    db_conn = get_db()
+    if db_conn is not None:
+        await db_conn.users.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {
+                "last_recommendations": recs,
+                "recommendations_generated_at": generated_at,
+                "recommendations_stale": False
+            }}
+        )
+    
+    return {
+        "recommendations": recs, 
+        "base_capacity": base_capacity, 
+        "chronotype": chronotype,
+        "generated_at": generated_at.isoformat()
+    }
 
+
+# Helper to invalidate recommendations
+async def invalidate_recommendations(user_id: ObjectId):
+    db = get_db()
+    if db is not None:
+        await db.users.update_one(
+            {"_id": user_id},
+            {"$set": {"recommendations_stale": True}}
+        )
 
 # ─── Task Creation ─────────────────────────────────────────────────────────────
 
@@ -805,6 +858,9 @@ async def create_task(
         if gcal_event and not gcal_event.get("id", "").startswith("task_"):
             is_gcal_synced = True
             await db.tasks.update_one({"_id": result.inserted_id}, {"$set": {"is_gcal_synced": True}})
+    
+    # Invalidate recommendations since a new task was added
+    await invalidate_recommendations(current_user["_id"])
 
     return {
         "id": str(result.inserted_id),
@@ -835,6 +891,9 @@ async def delete_task(task_id: str, current_user: dict = Depends(get_current_use
     result = await db.tasks.delete_one({"_id": obj_id, "user_id": str(current_user["_id"])})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Task not found or not authorized.")
+    
+    # Invalidate recommendations
+    await invalidate_recommendations(current_user["_id"])
     
     return {"message": "Task deleted successfully"}
 
