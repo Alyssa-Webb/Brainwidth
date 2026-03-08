@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import axios from "axios";
 import { ArrowLeft, ArrowRight, UploadCloud, FileText, CheckCircle2, X } from "lucide-react";
 
 export default function UploadPage() {
@@ -44,13 +45,27 @@ export default function UploadPage() {
     setFiles(files.filter(f => f.name !== name));
   };
 
-  const processUploads = () => {
+  const processUploads = async () => {
     if (files.length === 0) return;
     setIsProcessing(true);
-    // Mock processing time before redirecting
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 2000);
+    
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        await axios.post("http://localhost:8000/api/upload-syllabus", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
+    } catch (error) {
+      console.error("Upload failed", error);
+      alert("Failed to process syllabus. Ensure backend is running.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

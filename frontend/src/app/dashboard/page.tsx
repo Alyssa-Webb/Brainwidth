@@ -13,7 +13,7 @@ const API_URL = "http://localhost:8000/api";
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<any[]>([]);
-  const [scheduledTasks, setScheduledTasks] = useState<any[]>([]);
+  const [scheduledTasks, setScheduledTasks] = useState<any>({});
   const [currentLoad, setCurrentLoad] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
@@ -44,22 +44,13 @@ export default function DashboardPage() {
   const generateSchedule = async () => {
     setIsGenerating(true);
     try {
-      const response = await axios.post(`${API_URL}/calculate-tax`, tasks);
-      const processedTasks = response.data;
-      setScheduledTasks(processedTasks);
-      const totalTax = processedTasks.reduce((sum: number, t: any) => sum + t.mental_tax, 0);
-      setCurrentLoad(totalTax);
+      const response = await axios.get(`${API_URL}/optimize`);
+      const optimizedWeek = response.data;
+      setScheduledTasks(optimizedWeek.schedule);
+      setCurrentLoad(optimizedWeek.max_daily_load);
     } catch (error) {
       console.error("Failed to generate schedule", error);
-      // Fallback for mocked frontend demo if backend isn't running
-      const mockProcessed = tasks.map((t, i) => ({
-        ...t,
-        mental_tax: t.duration * 1.5,
-        context_switched: i > 0 && tasks[i-1].type !== t.type
-      }));
-      setScheduledTasks(mockProcessed);
-      const totalTax = mockProcessed.reduce((sum: number, t: any) => sum + t.mental_tax, 0);
-      setCurrentLoad(totalTax);
+      alert("Failed to generate optimized schedule. Ensure backend is running.");
     } finally {
       setIsGenerating(false);
     }
@@ -220,7 +211,7 @@ export default function DashboardPage() {
               <div className="bg-card border border-border rounded-3xl shadow-sm p-6 flex flex-col h-full overflow-hidden">
                 <div className="flex items-center justify-between mb-6 shrink-0">
                   <h2 className="font-bold text-lg">Optimized Flow</h2>
-                  {scheduledTasks.length > 0 && (
+                  {scheduledTasks && Object.keys(scheduledTasks).length > 0 && (
                     <span className="text-xs font-bold bg-green-500/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full border border-green-500/30">
                       Active
                     </span>
@@ -228,7 +219,7 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  <CalendarView tasks={scheduledTasks} />
+                  <CalendarView scheduleData={scheduledTasks} />
                 </div>
               </div>
 
