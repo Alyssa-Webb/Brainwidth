@@ -76,6 +76,8 @@ async def update_profile(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
+    update_data["recommendations_stale"] = True
+    
     await db.users.update_one(
         {"_id": current_user["_id"]},
         {"$set": update_data}

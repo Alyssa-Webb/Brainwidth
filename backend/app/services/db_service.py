@@ -10,10 +10,12 @@ DB_NAME = os.getenv("DB_NAME", "flux_db")
 client = None
 db_instance = None
 
+import certifi
+
 async def init_db():
     global client, db_instance
     try:
-        client = AsyncIOMotorClient(MONGO_URI)
+        client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
         await client.admin.command('ping')
         db_instance = client[DB_NAME]
         print("Connected to MongoDB!")

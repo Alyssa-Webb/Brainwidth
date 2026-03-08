@@ -12,6 +12,7 @@ from app.services.db_service import get_db
 from app.parser.pdf_parser import parse_syllabus_and_extract_tasks
 from app.api.deps import get_current_user
 from app.services.recommendations import generate_recommendations
+from app.services.recommendations import generate_ai_schedule_insights
 
 router = APIRouter()
 
@@ -219,6 +220,7 @@ class OptimizedTaskItem(BaseModel):
     duration: Optional[float] = 1.0
     type: Optional[str] = None
     is_break: Optional[bool] = False
+    is_weight: Optional[bool] = False
 
 class DailySchedule(BaseModel):
     total_load: float
@@ -231,6 +233,7 @@ class OptimizedWeekResponse(BaseModel):
     base_capacity: float
     schedule: Dict[str, DailySchedule]
     ai_insights: List[str] = Field(default_factory=list)
+    generated_at: str = Field(default_factory=lambda: datetime.datetime.utcnow().isoformat())
 
 @router.get("/optimize", response_model=OptimizedWeekResponse)
 async def optimize_week(
@@ -244,8 +247,8 @@ async def optimize_week(
     
     chronotype = current_user.get("chronotype", "neutral")
     base_capacity = float(current_user.get("base_capacity", 8.0))
-    work_start = int(current_user.get("work_start_hour", 8))
-    work_end = int(current_user.get("work_end_hour", 20))
+    work_start = int(current_user.get("work_start_hour", 00.00))
+    work_end = int(current_user.get("work_end_hour", 24.00))
     user_goals = current_user.get("goals", [])
     
     def parse_date(date_data):
@@ -402,26 +405,25 @@ async def optimize_week(
     # Add active syllabi as daily fixed load markers
     for i in range(7):
         day_key = f"Day {i} ({(today + datetime.timedelta(days=i)).isoformat()})"
+        day_date = today + datetime.timedelta(days=i)
         for s in active_syllabi:
             penalty = s.get("daily_load_penalty", 0.0)
-            if penalty > 0:
-                optimized_week[day_key].tasks.insert(0, OptimizedTaskItem(
-                    id=f"stem_penalty_{day_key}",
+            course_name = s.get("course_name", "Unknown Course")
+            # Only add weight if it's a weekday (Monday=0, Friday=4) and penalty > 0
+            if penalty > 0 and day_date.weekday() < 5:
+                # Add as a flexible task so it can find a non-overlapping slot
+                optimized_week[day_key].tasks.append(OptimizedTaskItem(
+                    id=f"stem_penalty_{day_key}_{course_name}",
                     source="Syllabus",
-                    title="Cognitive Debt (Syllabus)",
+                    title=f"Cognitive Weight | {round(penalty, 2)}τ | {course_name}",
                     mental_tax=round(penalty, 2),
-                    is_fixed=True,
-                    start_hour=float(work_start),
-                    duration=penalty,
+                    is_fixed=False,  # Make it flexible to avoid overlaps
+                    duration=0.5, # Small fixed duration
                     type="STEM",
-                    is_break=False
+                    is_break=False,
+                    is_weight=True # Priority tag
                 ))
-                daily_task_buckets[day_key].insert(0, {
-                    "duration": penalty,
-                    "mental_tax": penalty,
-                    "type": "STEM",
-                    "start_hour": float(work_start)
-                })
+                optimized_week[day_key].total_load += penalty
         
         # Add fixed Flux tasks for this day
         day_date = today + datetime.timedelta(days=i)
@@ -474,63 +476,28 @@ async def optimize_week(
         tasks_in_day = optimized_week[day_key].tasks
         if not tasks_in_day:
             continue
-        # Convert OptimizedTaskItem to dicts, correctly sorting fixed tasks first then flexible
-        task_dicts = sorted(
-            [{"id": t.id, "title": t.title, "duration": t.duration, "type": t.type or "Deep Work",
+        # Convert OptimizedTaskItem to dicts, correctly sorting fixed tasks first
+        task_dicts = [
+            {
+                "id": t.id,
+                "title": t.title,
+                "duration": t.duration,
+                "type": t.type or "Deep Work",
                 "mental_tax": t.mental_tax if not t.is_break else -t.mental_tax, 
                 "start_hour": t.start_hour,
-                "is_fixed": t.is_fixed, "source": t.source, "is_break": t.is_break}
-                for t in tasks_in_day],
-            key=lambda x: (x.get("is_fixed", False), x.get("start_hour") or 0), reverse=True
-        )
+                "is_fixed": t.is_fixed,
+                "source": t.source,
+                "is_break": t.is_break,
+                "is_weight": t.is_weight
+            }
+            for t in tasks_in_day
+        ]
+        # Sort is_fixed first within the logic of build_decompression_breaks anyway
 
         if decompress:
-            enriched = build_decompression_breaks(task_dicts, chronotype, work_start, work_end)
+            enriched = build_decompression_breaks(task_dicts, chronotype, work_start, work_end, decompress=True, goals=user_goals)
         else:
-            enriched = []
-            
-            from app.engine.calculator import CHRONOTYPE_PEAKS, get_next_available_slot
-            peak_info = CHRONOTYPE_PEAKS.get(chronotype, {})
-            peak_start = peak_info.get("peak_start", work_start)
-            
-            prev_end_hour = float(max(work_start, peak_start))
-            
-            for task in task_dicts:
-                sh = task.get("start_hour")
-                if sh is None:
-                    sh = get_next_available_slot(prev_end_hour, float(task.get("duration", 1.0)), chronotype)
-                else:
-                    sh = float(sh)
-                
-                # If sh jumped forward, we leaped over a rest period/gap. Fill it!
-                if sh > prev_end_hour:
-                    gap_dur = sh - prev_end_hour
-                    if gap_dur >= 0.5:
-                        # Check for overlaps with already scheduled tasks (like fixed GCal events)
-                        overlap = False
-                        for e_task in enriched:
-                            e_start = e_task.get("start_hour", 0)
-                            e_end = e_start + e_task.get("duration", 0)
-                            if max(prev_end_hour, e_start) < min(sh, e_end):
-                                overlap = True
-                                break
-                        
-                        if not overlap:
-                            enriched.append({
-                                "title": "🌙 Scheduled Rest",
-                                "duration": gap_dur,
-                                "type": "Break",
-                                "start_hour": prev_end_hour,
-                                "mental_tax": round(-0.4 * gap_dur, 2),
-                                "source": "AI Optimizer",
-                                "is_fixed": False,
-                                "is_break": True
-                            })
-                
-                task["start_hour"] = sh
-                duration = float(task.get("duration") or 1.0)
-                enriched.append(task)
-                prev_end_hour = max(prev_end_hour, sh + duration)
+            enriched = build_decompression_breaks(task_dicts, chronotype, work_start, work_end, decompress=False, goals=user_goals)
 
         new_task_items = []
         daily_task_buckets[day_key] = []  # Clear to avoid double-counting
@@ -545,7 +512,8 @@ async def optimize_week(
                 start_hour=td.get("start_hour"),
                 duration=td.get("duration", 1.0),
                 type=td.get("type", "Break"),
-                is_break=td.get("is_break", td.get("mental_tax", 0) < 0)
+                is_break=td.get("is_break", td.get("mental_tax", 0) < 0),
+                is_weight=td.get("is_weight", False)
             ))
             daily_task_buckets[day_key].append({
                 "duration": td.get("duration", 0.25),
@@ -571,31 +539,32 @@ async def optimize_week(
 
     real_max = max((v.total_load for v in optimized_week.values()), default=0.0)
 
-    # Generate AI Insights based on goals
+    # Generate dynamic AI Insights
     ai_insights = []
-    if user_goals:
-        for goal in user_goals:
-            goal_lower = goal.lower()
-            if "back-to-back" in goal_lower and decompress:
-                ai_insights.append(f"Goal Achieved: '{goal}'. Decompression Mode inserted recovery buffers between focus blocks.")
-            elif "exercise" in goal_lower or "gym" in goal_lower:
-                days_with_gym = sum(1 for d in optimized_week.values() if any("Gym" in t.title for t in d.tasks))
-                if days_with_gym > 0:
-                    ai_insights.append(f"Goal Progress: '{goal}'. Your schedule includes {days_with_gym} sessions this week.")
-            elif "thesis" in goal_lower:
-                ai_insights.append(f"Goal Focus: '{goal}'. Peak morning slots identified for deep work.")
+    try:
+        # Wrap OptimizedWeekItem back into dicts for the recommendation service
+        serializable_schedule = {}
+        for day, data in optimized_week.items():
+            serializable_schedule[day] = {
+                "tasks": [{"title": t.title, "type": t.type, "start_hour": t.start_hour, "mental_tax": t.mental_tax} for t in data.tasks]
+            }
+        
+        dynamic_recs = generate_ai_schedule_insights(current_user, serializable_schedule)
+        ai_insights = [f"{rec['title']}: {rec['message']}" for rec in dynamic_recs]
+    except Exception as e:
+        print(f"Error generating dynamic insights: {e}")
+        ai_insights = ["AI is still learning your patterns. Check back soon!"]
 
-    if not ai_insights and user_goals:
-        ai_insights.append(f"AI has incorporated your goals (e.g., '{user_goals[0]}') into this week's plan.")
-    elif not user_goals:
-        ai_insights.append("Add goals to your profile to see personalized AI insights here!")
+    if not ai_insights:
+        ai_insights = ["Your schedule is optimized for your chronotype! Keep up the great work."]
 
     return OptimizedWeekResponse(
         max_daily_load=round(real_max, 2),
         is_overloaded=(real_max > base_capacity),
         base_capacity=base_capacity,
         schedule=optimized_week,
-        ai_insights=ai_insights
+        ai_insights=ai_insights,
+        generated_at=datetime.datetime.utcnow().isoformat()
     )
 
 
@@ -846,8 +815,7 @@ async def create_task(
     is_gcal_synced = False
     gcal_event = None
     if has_date:
-        from app.services.google_calendar import create_event
-        gcal_event = create_event(
+        gcal_event = await create_event(
             title=task.title,
             date=due_date.isoformat(),
             duration=task.duration,

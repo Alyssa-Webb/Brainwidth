@@ -5,6 +5,7 @@ import { api } from "@/lib/auth";
 import LoadMeter from "@/components/LoadMeter";
 import CalendarView from "@/components/CalendarView";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
+import SchedulerGuide from "@/components/SchedulerGuide";
 import { Sparkles, ArrowRight, BedDouble, Calendar, CalendarDays, User, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
@@ -60,6 +61,7 @@ export default function DashboardPage() {
       if (todayKey && data.schedule[todayKey]) {
         setTodayLoad(data.schedule[todayKey].total_load ?? 0);
       }
+      if (data.generated_at) setRecsGeneratedAt(data.generated_at);
     } catch (error) {
       console.error("Failed to generate schedule", error);
     } finally {
@@ -202,6 +204,9 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">Your schedule has been rebalanced with recovery breaks inserted between heavy tasks.</p>
               </div>
             )}
+
+            {/* Scheduler Guide */}
+            <SchedulerGuide />
 
             {/* Recommendations */}
             <div className="bg-card border border-border rounded-3xl p-5 shadow-sm flex-1">

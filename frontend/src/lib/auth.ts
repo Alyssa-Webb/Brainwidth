@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_URL = "http://localhost:8000/api";
 
-export const setToken = (token: str) => {
+export const setToken = (token: string) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('flux_token', token);
   }
